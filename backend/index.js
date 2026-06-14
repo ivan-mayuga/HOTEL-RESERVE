@@ -2,7 +2,7 @@ import dotenv from 'dotenv'
 import { app } from './app.js'
 import { connectDb } from './config/db.js'
 
-dotenv.config()
+dotenv.config({ path: new URL('../.env', import.meta.url).pathname })
 
 const port = process.env.PORT || 5000
 

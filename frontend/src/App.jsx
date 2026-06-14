@@ -1,74 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import './App.css'
+import { roomsApi } from './api/roomsApi'
+import { bookingsApi } from './api/bookingsApi'
+import { amenitiesApi } from './api/amenitiesApi'
+import { receiptsApi } from './api/receiptsApi'
 
 const categories = ['All', 'Classic', 'De Luxe', 'Suite', 'Imperial Grand']
 const amenityCategories = ['Convenience', 'Pool', 'Spa']
-
-const seedRooms = [
-  { id: 'r101', roomNumber: 101, category: 'Classic', bedrooms: 1, pricePerNight: 2800, isAvailable: true },
-  { id: 'r102', roomNumber: 102, category: 'Classic', bedrooms: 1, pricePerNight: 3000, isAvailable: true },
-  { id: 'r201', roomNumber: 201, category: 'De Luxe', bedrooms: 2, pricePerNight: 4600, isAvailable: true },
-  { id: 'r202', roomNumber: 202, category: 'De Luxe', bedrooms: 2, pricePerNight: 4800, isAvailable: false },
-  { id: 'r301', roomNumber: 301, category: 'Suite', bedrooms: 2, pricePerNight: 7200, isAvailable: true },
-  { id: 'r302', roomNumber: 302, category: 'Suite', bedrooms: 3, pricePerNight: 8200, isAvailable: true },
-  { id: 'r401', roomNumber: 401, category: 'Imperial Grand', bedrooms: 3, pricePerNight: 12800, isAvailable: false },
-  { id: 'r402', roomNumber: 402, category: 'Imperial Grand', bedrooms: 4, pricePerNight: 14800, isAvailable: true },
-]
-
-const seedAmenities = [
-  { code: 'CON1', name: 'Breakfast Tray', price: 650, type: 'PerGuest', category: 'Convenience' },
-  { code: 'CON2', name: 'Laundry Service', price: 900, type: 'PerNight', category: 'Convenience' },
-  { code: 'CON3', name: 'Airport Transfer', price: 1800, type: 'PerBooking', category: 'Convenience' },
-  { code: 'POL1', name: 'Pool Cabana Access', price: 1200, type: 'PerNight', category: 'Pool' },
-  { code: 'POL2', name: 'Private Swim Coach', price: 1600, type: 'PerGuest', category: 'Pool' },
-  { code: 'SPA1', name: 'Signature Massage', price: 2200, type: 'PerGuest', category: 'Spa' },
-  { code: 'SPA2', name: 'Sauna Suite Access', price: 1500, type: 'PerNight', category: 'Spa' },
-]
-
-const seedBookings = [
-  {
-    referenceNumber: 'B0001',
-    guestName: 'Maria Santos',
-    numberOfGuests: 2,
-    checkIn: today(1),
-    checkOut: today(4),
-    numberOfDays: 3,
-    roomId: 'r202',
-    roomNumber: 202,
-    roomType: 'De Luxe',
-    pricePerNight: 4800,
-    roomRate: 19200,
-    amenityCodes: ['CON1'],
-    amenitiesTotal: 1300,
-    finalAmount: 20500,
-    isPaid: false,
-    paymentMethod: null,
-    amountReceived: 0,
-    change: 0,
-    status: 'Active',
-  },
-  {
-    referenceNumber: 'B0002',
-    guestName: 'Daniel Reyes',
-    numberOfGuests: 3,
-    checkIn: today(0),
-    checkOut: today(2),
-    numberOfDays: 2,
-    roomId: 'r401',
-    roomNumber: 401,
-    roomType: 'Imperial Grand',
-    pricePerNight: 12800,
-    roomRate: 38400,
-    amenityCodes: ['SPA2'],
-    amenitiesTotal: 3000,
-    finalAmount: 41400,
-    isPaid: true,
-    paymentMethod: 'Card',
-    amountReceived: 41400,
-    change: 0,
-    status: 'Active',
-  },
-]
 
 function today(offset = 0) {
   const date = new Date()
@@ -88,21 +26,55 @@ function dateDiff(checkIn, checkOut) {
   return Math.max(0, Math.round((end - start) / 86400000))
 }
 
-function makeReference(bookings) {
-  return `B${String(bookings.length + 1).padStart(4, '0')}`
+function amenityCost(amenity, booking) {
+  if (!booking) return 0
+  if (amenity.type === 'PerNight') return amenity.price * booking.numberOfDays
+  if (amenity.type === 'PerGuest') return amenity.price * booking.numberOfGuests
+  return amenity.price
 }
 
-function makeReceiptNumber(receipts) {
-  return `RCPT-${String(receipts.length + 1).padStart(4, '0')}`
+function roomRange(rooms, category) {
+  const values = rooms.filter((r) => r.category === category).map((r) => r.bedrooms)
+  if (!values.length) return '—'
+  return `${Math.min(...values)}-${Math.max(...values)} bedrooms`
 }
+
+function priceRange(rooms, category) {
+  const values = rooms.filter((r) => r.category === category).map((r) => r.pricePerNight)
+  if (!values.length) return '—'
+  return `${formatCurrency(Math.min(...values))} to ${formatCurrency(Math.max(...values))}`
+}
+
+// ─── App Root ─────────────────────────────────────────────────────────────────
 
 function App() {
   const [path, setPath] = useState(window.location.pathname)
-  const [rooms, setRooms] = useState(seedRooms)
-  const [bookings, setBookings] = useState(seedBookings)
+  const [rooms, setRooms] = useState([])
+  const [amenities, setAmenities] = useState([])
+  const [bookings, setBookings] = useState([])
   const [receipts, setReceipts] = useState([])
+  const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
   const [staffAuthed, setStaffAuthed] = useState(false)
+
+  // Load initial data from backend
+  useEffect(() => {
+    async function bootstrap() {
+      try {
+        const [fetchedRooms, fetchedAmenities] = await Promise.all([
+          roomsApi.list(),
+          amenitiesApi.list(),
+        ])
+        setRooms(fetchedRooms)
+        setAmenities(fetchedAmenities)
+      } catch (err) {
+        showToast('Failed to connect to server. Please check the backend.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    bootstrap()
+  }, [])
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)
@@ -116,14 +88,33 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const showToast = (message) => {
+  const showToast = useCallback((message) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 3600)
-  }
+  }, [])
+
+  const refreshRooms = useCallback(async () => {
+    try {
+      const updated = await roomsApi.list()
+      setRooms(updated)
+    } catch {
+      /* silent */
+    }
+  }, [])
+
+  const refreshBookings = useCallback(async () => {
+    try {
+      const updated = await bookingsApi.list()
+      setBookings(updated)
+    } catch {
+      /* silent */
+    }
+  }, [])
 
   const appState = {
     rooms,
     setRooms,
+    amenities,
     bookings,
     setBookings,
     receipts,
@@ -132,6 +123,19 @@ function App() {
     setStaffAuthed,
     navigate,
     showToast,
+    refreshRooms,
+    refreshBookings,
+  }
+
+  if (loading) {
+    return (
+      <div className="app-shell">
+        <div className="empty-state" style={{ minHeight: '100vh' }}>
+          <span className="empty-icon">⋯</span>
+          <strong>Connecting to server…</strong>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -145,6 +149,8 @@ function App() {
     </div>
   )
 }
+
+// ─── Router ───────────────────────────────────────────────────────────────────
 
 function RouteSwitch({ path, appState }) {
   if (path === '/') return <Landing {...appState} />
@@ -162,6 +168,8 @@ function RouteSwitch({ path, appState }) {
   if (path === '/staff/inquiry') return <Protected page={<Inquiry {...appState} />} {...appState} />
   return <NotFound navigate={appState.navigate} />
 }
+
+// ─── Navbar ───────────────────────────────────────────────────────────────────
 
 function Navbar({ path, navigate, staffAuthed, setStaffAuthed }) {
   const [open, setOpen] = useState(false)
@@ -183,9 +191,7 @@ function Navbar({ path, navigate, staffAuthed, setStaffAuthed }) {
         </span>
       </button>
       <button className="menu-button" type="button" onClick={() => setOpen(!open)} aria-label="Toggle navigation">
-        <span></span>
-        <span></span>
-        <span></span>
+        <span></span><span></span><span></span>
       </button>
       <nav className={open ? 'nav-links open' : 'nav-links'}>
         {links.map(([href, label]) => (
@@ -193,27 +199,22 @@ function Navbar({ path, navigate, staffAuthed, setStaffAuthed }) {
             className={path === href || (href !== '/' && path.startsWith(href)) ? 'active' : ''}
             key={href}
             type="button"
-            onClick={() => {
-              setOpen(false)
-              navigate(href)
-            }}
+            onClick={() => { setOpen(false); navigate(href) }}
           >
             {label}
           </button>
         ))}
         {staffAuthed ? (
-          <button className="outline-button small" type="button" onClick={() => setStaffAuthed(false)}>
-            Sign Out
-          </button>
+          <button className="outline-button small" type="button" onClick={() => setStaffAuthed(false)}>Sign Out</button>
         ) : (
-          <button className="primary-button small" type="button" onClick={() => navigate('/staff/login')}>
-            Staff Login
-          </button>
+          <button className="primary-button small" type="button" onClick={() => navigate('/staff/login')}>Staff Login</button>
         )}
       </nav>
     </header>
   )
 }
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer({ navigate }) {
   return (
@@ -231,10 +232,12 @@ function Footer({ navigate }) {
   )
 }
 
+// ─── Landing ──────────────────────────────────────────────────────────────────
+
 function Landing({ rooms, navigate }) {
   const [filter, setFilter] = useState('All')
-  const filtered = filter === 'All' ? rooms : rooms.filter((room) => room.category === filter)
-  const vacant = rooms.filter((room) => room.isAvailable).length
+  const filtered = filter === 'All' ? rooms : rooms.filter((r) => r.category === filter)
+  const vacant = rooms.filter((r) => r.isAvailable).length
 
   return (
     <section className="page">
@@ -257,13 +260,14 @@ function Landing({ rooms, navigate }) {
 }
 
 function Stats({ rooms }) {
-  const occupied = rooms.filter((room) => !room.isAvailable).length
+  const occupied = rooms.filter((r) => !r.isAvailable).length
+  const prices = rooms.map((r) => r.pricePerNight)
   return (
     <div className="stats-grid">
       <Metric label="Vacant Rooms" value={rooms.length - occupied} />
       <Metric label="Occupied Rooms" value={occupied} />
       <Metric label="Room Categories" value="4" />
-      <Metric label="Starting Rate" value={formatCurrency(Math.min(...rooms.map((room) => room.pricePerNight)))} />
+      <Metric label="Starting Rate" value={prices.length ? formatCurrency(Math.min(...prices)) : '—'} />
     </div>
   )
 }
@@ -277,14 +281,15 @@ function Metric({ label, value }) {
   )
 }
 
+// ─── Rooms Directory ──────────────────────────────────────────────────────────
+
 function RoomsDirectory({ rooms, navigate }) {
   const [category, setCategory] = useState('All')
   const [availability, setAvailability] = useState('All')
-  const filtered = rooms.filter((room) => {
-    const categoryMatch = category === 'All' || room.category === category
-    const availabilityMatch =
-      availability === 'All' || (availability === 'Vacant' ? room.isAvailable : !room.isAvailable)
-    return categoryMatch && availabilityMatch
+  const filtered = rooms.filter((r) => {
+    const catMatch = category === 'All' || r.category === category
+    const availMatch = availability === 'All' || (availability === 'Vacant' ? r.isAvailable : !r.isAvailable)
+    return catMatch && availMatch
   })
 
   return (
@@ -300,7 +305,7 @@ function RoomsDirectory({ rooms, navigate }) {
 }
 
 function RoomDetail({ roomNumber, rooms, navigate }) {
-  const room = rooms.find((item) => String(item.roomNumber) === String(roomNumber))
+  const room = rooms.find((r) => String(r.roomNumber) === String(roomNumber))
   if (!room) return <NotFound navigate={navigate} />
   return (
     <section className="page narrow">
@@ -322,7 +327,9 @@ function RoomDetail({ roomNumber, rooms, navigate }) {
   )
 }
 
-function Reserve({ rooms, bookings, setBookings, setRooms, navigate, showToast }) {
+// ─── Reserve ──────────────────────────────────────────────────────────────────
+
+function Reserve({ rooms, navigate, showToast, refreshRooms }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     checkIn: today(1),
@@ -330,85 +337,84 @@ function Reserve({ rooms, bookings, setBookings, setRooms, navigate, showToast }
     guestName: '',
     numberOfGuests: 1,
     category: '',
-    roomId: '',
+    roomId: '',        // MongoDB _id from backend
   })
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+
   const days = dateDiff(form.checkIn, form.checkOut)
-  const selectedRoom = rooms.find((room) => room.id === form.roomId)
+  const selectedRoom = rooms.find((r) => r._id === form.roomId)
   const roomRate = selectedRoom ? selectedRoom.pricePerNight * (days + 1) : 0
 
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }))
+  const update = (key, value) => setForm((cur) => ({ ...cur, [key]: value }))
 
   const validateStep = () => {
-    const nextErrors = {}
+    const errs = {}
     if (step === 1) {
-      if (!/^[A-Za-z ]{2,}$/.test(form.guestName.trim())) nextErrors.guestName = 'Use letters and spaces, at least 2 characters.'
-      if (Number(form.numberOfGuests) < 1) nextErrors.numberOfGuests = 'Guest count must be greater than 0.'
-      if (form.checkIn < today(0)) nextErrors.checkIn = 'Check-in must be today or later.'
-      if (!days) nextErrors.checkOut = 'Check-out must be after check-in.'
+      if (!/^[A-Za-z ]{2,}$/.test(form.guestName.trim())) errs.guestName = 'Use letters and spaces, at least 2 characters.'
+      if (Number(form.numberOfGuests) < 1) errs.numberOfGuests = 'Guest count must be greater than 0.'
+      if (form.checkIn < today(0)) errs.checkIn = 'Check-in must be today or later.'
+      if (!days) errs.checkOut = 'Check-out must be after check-in.'
     }
-    if (step === 2 && !form.category) nextErrors.category = 'Select a room type.'
-    if (step === 3 && !form.roomId) nextErrors.roomId = 'Select an available room.'
-    setErrors(nextErrors)
-    return Object.keys(nextErrors).length === 0
+    if (step === 2 && !form.category) errs.category = 'Select a room type.'
+    if (step === 3 && !form.roomId) errs.roomId = 'Select an available room.'
+    setErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
-  const next = () => {
-    if (validateStep()) setStep((current) => Math.min(4, current + 1))
+  const next = () => { if (validateStep()) setStep((s) => Math.min(4, s + 1)) }
+
+  const confirmReservation = async (payNow) => {
+    if (!selectedRoom || submitting) return
+    setSubmitting(true)
+    try {
+      const booking = await bookingsApi.create({
+        guestName: form.guestName.trim(),
+        numberOfGuests: Number(form.numberOfGuests),
+        checkIn: form.checkIn,
+        checkOut: form.checkOut,
+        roomId: selectedRoom._id,
+      })
+      await refreshRooms()
+      showToast(`Reservation ${booking.referenceNumber} created.`)
+      navigate(payNow ? `/payment/${booking.referenceNumber}` : `/booking/${booking.referenceNumber}`)
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to create reservation.'
+      showToast(msg)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const confirmReservation = (payNow) => {
-    if (!selectedRoom) return
-    const referenceNumber = makeReference(bookings)
-    const booking = {
-      referenceNumber,
-      guestName: form.guestName.trim(),
-      numberOfGuests: Number(form.numberOfGuests),
-      checkIn: form.checkIn,
-      checkOut: form.checkOut,
-      numberOfDays: days,
-      roomId: selectedRoom.id,
-      roomNumber: selectedRoom.roomNumber,
-      roomType: selectedRoom.category,
-      pricePerNight: selectedRoom.pricePerNight,
-      roomRate,
-      amenityCodes: [],
-      amenitiesTotal: 0,
-      finalAmount: roomRate,
-      isPaid: false,
-      paymentMethod: null,
-      amountReceived: 0,
-      change: 0,
-      status: 'Active',
-    }
-    setBookings((current) => [...current, booking])
-    setRooms((current) => current.map((room) => (room.id === selectedRoom.id ? { ...room, isAvailable: false } : room)))
-    showToast(`Reservation ${referenceNumber} created.`)
-    navigate(payNow ? `/payment/${referenceNumber}` : `/booking/${referenceNumber}`)
-  }
+  const vacantInCategory = rooms.filter((r) => r.category === form.category && r.isAvailable)
 
   return (
     <section className="page narrow">
-      <PageTitle eyebrow="Reservation wizard" title="Reserve a room" text="A four-step frontend flow matching the original reserve function." />
+      <PageTitle eyebrow="Reservation wizard" title="Reserve a room" text="A four-step flow to select dates, room type, and confirm your reservation." />
       <StepIndicator step={step} labels={['Dates', 'Type', 'Room', 'Review']} />
       <div className="panel">
         {step === 1 ? (
           <div className="form-grid">
-            <Input label="Check-In" type="date" value={form.checkIn} min={today(0)} error={errors.checkIn} onChange={(value) => update('checkIn', value)} />
-            <Input label="Check-Out" type="date" value={form.checkOut} min={form.checkIn || today(1)} error={errors.checkOut} onChange={(value) => update('checkOut', value)} />
-            <Input label="Guest Name" value={form.guestName} error={errors.guestName} onChange={(value) => update('guestName', value)} />
-            <Input label="Number of Guests" type="number" min="1" value={form.numberOfGuests} error={errors.numberOfGuests} onChange={(value) => update('numberOfGuests', value)} />
+            <Input label="Check-In" type="date" value={form.checkIn} min={today(0)} error={errors.checkIn} onChange={(v) => update('checkIn', v)} />
+            <Input label="Check-Out" type="date" value={form.checkOut} min={form.checkIn || today(1)} error={errors.checkOut} onChange={(v) => update('checkOut', v)} />
+            <Input label="Guest Name" value={form.guestName} error={errors.guestName} onChange={(v) => update('guestName', v)} />
+            <Input label="Number of Guests" type="number" min="1" value={form.numberOfGuests} error={errors.numberOfGuests} onChange={(v) => update('numberOfGuests', v)} />
             <div className="readout"><span>Number of Days</span><strong>{days}</strong></div>
           </div>
         ) : null}
         {step === 2 ? (
           <div>
             <div className="choice-grid">
-              {categories.slice(1).map((category) => (
-                <button className={form.category === category ? 'choice selected' : 'choice'} type="button" key={category} onClick={() => update('category', category)}>
-                  <strong>{category}</strong>
-                  <span>{roomRange(rooms, category)}</span>
-                  <small>{priceRange(rooms, category)}</small>
+              {categories.slice(1).map((cat) => (
+                <button
+                  className={form.category === cat ? 'choice selected' : 'choice'}
+                  type="button"
+                  key={cat}
+                  onClick={() => update('category', cat)}
+                >
+                  <strong>{cat}</strong>
+                  <span>{roomRange(rooms, cat)}</span>
+                  <small>{priceRange(rooms, cat)}</small>
                 </button>
               ))}
             </div>
@@ -421,19 +427,23 @@ function Reserve({ rooms, bookings, setBookings, setRooms, navigate, showToast }
               <table>
                 <thead><tr><th>Room</th><th>Bedrooms</th><th>Rate</th><th>Status</th><th></th></tr></thead>
                 <tbody>
-                  {rooms.filter((room) => room.category === form.category && room.isAvailable).map((room) => (
-                    <tr key={room.id}>
+                  {vacantInCategory.map((room) => (
+                    <tr key={room._id}>
                       <td className="mono">{room.roomNumber}</td>
                       <td>{room.bedrooms}</td>
                       <td>{formatCurrency(room.pricePerNight)}</td>
                       <td><Badge status="Vacant" /></td>
-                      <td><button className="table-action" type="button" onClick={() => update('roomId', room.id)}>{form.roomId === room.id ? 'Selected' : 'Select'}</button></td>
+                      <td>
+                        <button className="table-action" type="button" onClick={() => update('roomId', room._id)}>
+                          {form.roomId === room._id ? 'Selected' : 'Select'}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            {rooms.filter((room) => room.category === form.category && room.isAvailable).length === 0 ? <EmptyState title={`No vacant ${form.category} rooms available.`} /> : null}
+            {vacantInCategory.length === 0 ? <EmptyState title={`No vacant ${form.category} rooms available.`} /> : null}
             <ErrorText message={errors.roomId} />
           </div>
         ) : null}
@@ -445,11 +455,14 @@ function Reserve({ rooms, bookings, setBookings, setRooms, navigate, showToast }
               ['Room', selectedRoom ? `Room ${selectedRoom.roomNumber}, ${selectedRoom.category}` : 'No room selected'],
               ['Guests', form.numberOfGuests],
               ['Room Rate', formatCurrency(roomRate)],
-              ['Reference Preview', makeReference(bookings)],
             ]} />
             <div className="button-row">
-              <button className="primary-button" type="button" onClick={() => confirmReservation(true)}>Proceed to Payment</button>
-              <button className="outline-button" type="button" onClick={() => confirmReservation(false)}>Pay Later</button>
+              <button className="primary-button" type="button" disabled={submitting} onClick={() => confirmReservation(true)}>
+                {submitting ? 'Processing…' : 'Proceed to Payment'}
+              </button>
+              <button className="outline-button" type="button" disabled={submitting} onClick={() => confirmReservation(false)}>
+                Pay Later
+              </button>
             </div>
           </div>
         ) : null}
@@ -462,19 +475,38 @@ function Reserve({ rooms, bookings, setBookings, setRooms, navigate, showToast }
   )
 }
 
-function BookingLookup({ bookings, navigate }) {
+// ─── Booking Lookup ───────────────────────────────────────────────────────────
+
+function BookingLookup({ navigate }) {
   const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
   const [searched, setSearched] = useState(false)
-  const results = bookings.filter((booking) => booking.guestName.toLowerCase().includes(query.trim().toLowerCase()))
+  const [loading, setLoading] = useState(false)
+
+  const search = async (e) => {
+    e.preventDefault()
+    if (!query.trim()) return
+    setLoading(true)
+    try {
+      const data = await bookingsApi.list({ guestName: query.trim() })
+      setResults(data)
+      setSearched(true)
+    } catch {
+      setResults([])
+      setSearched(true)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <section className="page narrow">
       <PageTitle eyebrow="Guest lookup" title="Find a booking" text="Search by guest name and open the full booking record." />
-      <form className="search-panel" onSubmit={(event) => { event.preventDefault(); setSearched(true) }}>
+      <form className="search-panel" onSubmit={search}>
         <Input label="Guest Name" value={query} onChange={setQuery} />
-        <button className="primary-button" type="submit">Search</button>
+        <button className="primary-button" type="submit" disabled={loading}>{loading ? 'Searching…' : 'Search'}</button>
       </form>
-      {searched && results.length === 0 ? <EmptyState title={`No bookings found for ${query}.`} /> : null}
+      {searched && results.length === 0 ? <EmptyState title={`No bookings found for "${query}".`} /> : null}
       <div className="list-stack">
         {searched && results.map((booking) => <BookingCard booking={booking} key={booking.referenceNumber} navigate={navigate} />)}
       </div>
@@ -482,9 +514,21 @@ function BookingLookup({ bookings, navigate }) {
   )
 }
 
-function BookingDetail({ refNumber, bookings, navigate }) {
-  const booking = bookings.find((item) => item.referenceNumber === refNumber)
-  if (!booking) return <NotFound navigate={navigate} />
+// ─── Booking Detail ───────────────────────────────────────────────────────────
+
+function BookingDetail({ refNumber, navigate }) {
+  const [booking, setBooking] = useState(null)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    bookingsApi.get(refNumber)
+      .then(setBooking)
+      .catch(() => setNotFound(true))
+  }, [refNumber])
+
+  if (notFound) return <NotFound navigate={navigate} />
+  if (!booking) return <LoadingPage />
+
   return (
     <section className="page narrow">
       <PageTitle eyebrow="Booking detail" title={booking.referenceNumber} text="Reservation summary, payment state, and next available action." />
@@ -495,37 +539,58 @@ function BookingDetail({ refNumber, bookings, navigate }) {
         </div>
         <BillRows rows={[
           ['Room', `${booking.roomNumber} - ${booking.roomType}`],
-          ['Dates', `${booking.checkIn} to ${booking.checkOut}`],
+          ['Dates', `${booking.checkIn?.slice(0, 10)} to ${booking.checkOut?.slice(0, 10)}`],
           ['Guests', booking.numberOfGuests],
           ['Room Rate', formatCurrency(booking.roomRate)],
           ['Amenities', formatCurrency(booking.amenitiesTotal)],
           ['Final Amount', formatCurrency(booking.finalAmount)],
           ['Status', booking.status],
         ]} />
-        {!booking.isPaid ? <button className="primary-button" type="button" onClick={() => navigate(`/payment/${booking.referenceNumber}`)}>Continue to Payment</button> : null}
+        {!booking.isPaid ? (
+          <button className="primary-button" type="button" onClick={() => navigate(`/payment/${booking.referenceNumber}`)}>
+            Continue to Payment
+          </button>
+        ) : null}
       </div>
     </section>
   )
 }
 
-function Payment({ refNumber, bookings, setBookings, receipts, setReceipts, navigate, showToast }) {
-  const booking = bookings.find((item) => item.referenceNumber === refNumber)
-  const [amenityCategory, setAmenityCategory] = useState('Convenience')
-  const [selectedCodes, setSelectedCodes] = useState(booking?.amenityCodes || [])
-  const [method, setMethod] = useState('Cash')
-  const [details, setDetails] = useState({ amountReceived: '', cardName: '', cardNumber: '', expiry: '', cvv: '', gcashNumber: '', gcashName: '' })
-  const [error, setError] = useState('')
+// ─── Payment ──────────────────────────────────────────────────────────────────
 
-  const selectedAmenities = seedAmenities.filter((item) => selectedCodes.includes(item.code))
-  const amenitiesTotal = selectedAmenities.reduce((total, amenity) => total + amenityCost(amenity, booking), 0)
-  const finalAmount = (booking?.roomRate || 0) + amenitiesTotal
+function Payment({ refNumber, navigate, showToast, amenities }) {
+  const [booking, setBooking] = useState(null)
+  const [notFound, setNotFound] = useState(false)
+  const [amenityCategory, setAmenityCategory] = useState('Convenience')
+  const [selectedCodes, setSelectedCodes] = useState([])
+  const [method, setMethod] = useState('Cash')
+  const [details, setDetails] = useState({
+    amountReceived: '', cardName: '', cardNumber: '', expiry: '', cvv: '',
+    gcashNumber: '', gcashName: '',
+  })
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    bookingsApi.get(refNumber)
+      .then((b) => {
+        setBooking(b)
+        setSelectedCodes(b.amenityCodes || [])
+      })
+      .catch(() => setNotFound(true))
+  }, [refNumber])
+
+  if (notFound) return <NotFound navigate={navigate} />
+  if (!booking) return <LoadingPage />
+  if (booking.isPaid) return <Receipt refNumber={refNumber} navigate={navigate} />
+
+  const selectedAmenities = amenities.filter((a) => selectedCodes.includes(a.code))
+  const amenitiesTotal = selectedAmenities.reduce((sum, a) => sum + amenityCost(a, booking), 0)
+  const finalAmount = (booking.roomRate || 0) + amenitiesTotal
   const cashChange = Number(details.amountReceived || 0) - finalAmount
 
-  if (!booking) return <NotFound navigate={navigate} />
-  if (booking.isPaid) return <Receipt refNumber={refNumber} bookings={bookings} receipts={receipts} navigate={navigate} />
-
   const toggleAmenity = (code) => {
-    setSelectedCodes((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code])
+    setSelectedCodes((cur) => cur.includes(code) ? cur.filter((c) => c !== code) : [...cur, code])
   }
 
   const validatePayment = () => {
@@ -539,38 +604,41 @@ function Payment({ refNumber, bookings, setBookings, receipts, setReceipts, navi
     return ''
   }
 
-  const pay = () => {
+  const pay = async () => {
     const paymentError = validatePayment()
     setError(paymentError)
-    if (paymentError) return
-    const amountReceived = method === 'Cash' ? Number(details.amountReceived) : finalAmount
-    const receipt = {
-      orNumber: makeReceiptNumber(receipts),
-      referenceNumber: booking.referenceNumber,
-      guestName: booking.guestName,
-      roomNumber: booking.roomNumber,
-      roomType: booking.roomType,
-      roomRate: booking.roomRate,
-      amenitiesTotal,
-      finalAmount,
-      amountReceived,
-      change: Math.max(0, amountReceived - finalAmount),
-      paymentMethod: method,
-      issuedAt: new Date().toLocaleString(),
+    if (paymentError || submitting) return
+
+    setSubmitting(true)
+    try {
+      const payload = {
+        amenityCodes: selectedCodes,
+        paymentMethod: method,
+        amountReceived: method === 'Cash' ? Number(details.amountReceived) : finalAmount,
+        ...(method === 'Card' && {
+          card: {
+            cardName: details.cardName,
+            cardNumber: details.cardNumber,
+            expiry: details.expiry,
+            cvv: details.cvv,
+          },
+        }),
+        ...(method === 'GCash' && {
+          gcash: {
+            gcashNumber: details.gcashNumber,
+            gcashName: details.gcashName,
+          },
+        }),
+      }
+      await bookingsApi.pay(refNumber, payload)
+      showToast(`Payment completed for ${refNumber}.`)
+      navigate(`/payment/${refNumber}/receipt`)
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Payment failed. Please try again.'
+      setError(msg)
+    } finally {
+      setSubmitting(false)
     }
-    setReceipts((current) => [...current, receipt])
-    setBookings((current) => current.map((item) => item.referenceNumber === refNumber ? {
-      ...item,
-      amenityCodes: selectedCodes,
-      amenitiesTotal,
-      finalAmount,
-      isPaid: true,
-      paymentMethod: method,
-      amountReceived,
-      change: receipt.change,
-    } : item))
-    showToast(`Payment completed for ${refNumber}.`)
-    navigate(`/payment/${refNumber}/receipt`)
   }
 
   return (
@@ -591,13 +659,17 @@ function Payment({ refNumber, bookings, setBookings, receipts, setReceipts, navi
             <table>
               <thead><tr><th>Code</th><th>Name</th><th>Price</th><th>Type</th><th></th></tr></thead>
               <tbody>
-                {seedAmenities.filter((item) => item.category === amenityCategory).map((amenity) => (
+                {amenities.filter((a) => a.category === amenityCategory).map((amenity) => (
                   <tr key={amenity.code}>
                     <td className="mono">{amenity.code}</td>
                     <td>{amenity.name}</td>
                     <td>{formatCurrency(amenity.price)}</td>
                     <td>{amenity.type}</td>
-                    <td><button className="table-action" type="button" onClick={() => toggleAmenity(amenity.code)}>{selectedCodes.includes(amenity.code) ? 'Remove' : 'Add'}</button></td>
+                    <td>
+                      <button className="table-action" type="button" onClick={() => toggleAmenity(amenity.code)}>
+                        {selectedCodes.includes(amenity.code) ? 'Remove' : 'Add'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -618,36 +690,61 @@ function Payment({ refNumber, bookings, setBookings, receipts, setReceipts, navi
           </div>
           {method === 'Cash' ? (
             <>
-              <Input label="Amount Received" type="number" value={details.amountReceived} onChange={(value) => setDetails({ ...details, amountReceived: value })} />
+              <Input label="Amount Received" type="number" value={details.amountReceived} onChange={(v) => setDetails({ ...details, amountReceived: v })} />
               <div className="readout"><span>Change</span><strong>{cashChange >= 0 ? formatCurrency(cashChange) : 'Insufficient'}</strong></div>
             </>
           ) : null}
           {method === 'Card' ? (
             <div className="form-grid one">
-              <Input label="Cardholder Name" value={details.cardName} onChange={(value) => setDetails({ ...details, cardName: value })} />
-              <Input label="Card Number" value={details.cardNumber} onChange={(value) => setDetails({ ...details, cardNumber: value.replace(/\D/g, '') })} />
-              <Input label="Expiry Date" placeholder="MM/YY" value={details.expiry} onChange={(value) => setDetails({ ...details, expiry: value })} />
-              <Input label="CVV" value={details.cvv} onChange={(value) => setDetails({ ...details, cvv: value.replace(/\D/g, '') })} />
+              <Input label="Cardholder Name" value={details.cardName} onChange={(v) => setDetails({ ...details, cardName: v })} />
+              <Input label="Card Number" value={details.cardNumber} onChange={(v) => setDetails({ ...details, cardNumber: v.replace(/\D/g, '') })} />
+              <Input label="Expiry Date" placeholder="MM/YY" value={details.expiry} onChange={(v) => setDetails({ ...details, expiry: v })} />
+              <Input label="CVV" value={details.cvv} onChange={(v) => setDetails({ ...details, cvv: v.replace(/\D/g, '') })} />
             </div>
           ) : null}
           {method === 'GCash' ? (
             <div className="form-grid one">
-              <Input label="GCash Number" value={details.gcashNumber} onChange={(value) => setDetails({ ...details, gcashNumber: value.replace(/\D/g, '') })} />
-              <Input label="GCash Account Name" value={details.gcashName} onChange={(value) => setDetails({ ...details, gcashName: value })} />
+              <Input label="GCash Number" value={details.gcashNumber} onChange={(v) => setDetails({ ...details, gcashNumber: v.replace(/\D/g, '') })} />
+              <Input label="GCash Account Name" value={details.gcashName} onChange={(v) => setDetails({ ...details, gcashName: v })} />
             </div>
           ) : null}
           <ErrorText message={error} />
-          <button className="primary-button full" type="button" onClick={pay}>Pay Now</button>
+          <button className="primary-button full" type="button" disabled={submitting} onClick={pay}>
+            {submitting ? 'Processing…' : 'Pay Now'}
+          </button>
         </div>
       </div>
     </section>
   )
 }
 
-function Receipt({ refNumber, bookings, receipts, navigate }) {
-  const booking = bookings.find((item) => item.referenceNumber === refNumber)
-  const receipt = [...receipts].reverse().find((item) => item.referenceNumber === refNumber) || booking
-  if (!booking || !receipt) return <NotFound navigate={navigate} />
+// ─── Receipt ──────────────────────────────────────────────────────────────────
+
+function Receipt({ refNumber, navigate }) {
+  const [receipt, setReceipt] = useState(null)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    // Receipts are keyed by OR number; find via booking reference
+    bookingsApi.get(refNumber)
+      .then(async (booking) => {
+        if (!booking.isPaid) { setNotFound(true); return }
+        // Try to fetch the receipt using the OR number stored on the booking
+        try {
+          const r = await receiptsApi.get(booking.orNumber)
+          setReceipt({ ...r, booking })
+        } catch {
+          // Fallback: render what we have from the booking
+          setReceipt({ ...booking, booking })
+        }
+      })
+      .catch(() => setNotFound(true))
+  }, [refNumber])
+
+  if (notFound) return <NotFound navigate={navigate} />
+  if (!receipt) return <LoadingPage />
+
+  const b = receipt.booking
   return (
     <section className="page narrow print-page">
       <PageTitle eyebrow="Receipt" title={receipt.orNumber || `Receipt for ${refNumber}`} text="Read-only receipt preview for printing or guest handoff." />
@@ -657,17 +754,17 @@ function Receipt({ refNumber, bookings, receipts, navigate }) {
           <span>Official Receipt</span>
         </div>
         <BillRows rows={[
-          ['OR Number', receipt.orNumber || 'Generated in backend'],
+          ['OR Number', receipt.orNumber || '—'],
           ['Reference Number', refNumber],
-          ['Guest Name', booking.guestName],
-          ['Room', `${booking.roomNumber} - ${booking.roomType}`],
-          ['Room Rate', formatCurrency(booking.roomRate)],
-          ['Amenities Total', formatCurrency(booking.amenitiesTotal)],
-          ['Total Due', formatCurrency(booking.finalAmount)],
-          ['Amount Paid', formatCurrency(booking.amountReceived)],
-          ['Change', formatCurrency(booking.change)],
-          ['Payment Method', booking.paymentMethod || 'Pending'],
-          ['Issued At', receipt.issuedAt || 'Pending'],
+          ['Guest Name', b.guestName],
+          ['Room', `${b.roomNumber} - ${b.roomType}`],
+          ['Room Rate', formatCurrency(b.roomRate)],
+          ['Amenities Total', formatCurrency(b.amenitiesTotal)],
+          ['Total Due', formatCurrency(b.finalAmount)],
+          ['Amount Paid', formatCurrency(b.amountReceived)],
+          ['Change', formatCurrency(b.change)],
+          ['Payment Method', b.paymentMethod || 'Pending'],
+          ['Issued At', receipt.issuedAt || new Date().toLocaleString()],
         ]} />
       </div>
       <div className="button-row no-print">
@@ -678,15 +775,23 @@ function Receipt({ refNumber, bookings, receipts, navigate }) {
   )
 }
 
+// ─── Staff ────────────────────────────────────────────────────────────────────
+
 function StaffLogin({ setStaffAuthed, navigate, showToast }) {
   const [id, setId] = useState('frontdesk')
   return (
     <section className="page narrow">
-      <PageTitle eyebrow="Staff portal" title="Staff login" text="A frontend-only session gate for protected registry, checkout, and inquiry views." />
+      <PageTitle eyebrow="Staff portal" title="Staff login" text="A session gate for protected registry, checkout, and inquiry views." />
       <div className="panel">
         <Input label="Staff ID" value={id} onChange={setId} />
         <Input label="Password" type="password" value="demo" onChange={() => {}} />
-        <button className="primary-button full" type="button" onClick={() => { setStaffAuthed(true); showToast('Staff session started.'); navigate('/staff') }}>Sign In</button>
+        <button
+          className="primary-button full"
+          type="button"
+          onClick={() => { setStaffAuthed(true); showToast('Staff session started.'); navigate('/staff') }}
+        >
+          Sign In
+        </button>
       </div>
     </section>
   )
@@ -720,16 +825,43 @@ function Protected({ staffAuthed, navigate, page }) {
   return page
 }
 
-function Registry({ bookings, setBookings, setRooms, showToast }) {
-  const [query, setQuery] = useState('')
-  const [target, setTarget] = useState(null)
-  const results = bookings.filter((booking) => booking.status === 'Active' && booking.guestName.toLowerCase().includes(query.toLowerCase()))
+// ─── Registry ─────────────────────────────────────────────────────────────────
 
-  const cancel = () => {
-    setBookings((current) => current.map((booking) => booking.referenceNumber === target.referenceNumber ? { ...booking, status: 'Cancelled' } : booking))
-    setRooms((current) => current.map((room) => room.id === target.roomId ? { ...room, isAvailable: true } : room))
-    showToast(`${target.referenceNumber} cancelled.`)
-    setTarget(null)
+function Registry({ showToast, refreshRooms }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [target, setTarget] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+
+  const search = async () => {
+    setLoading(true)
+    try {
+      const data = await bookingsApi.list({ status: 'Active', guestName: query || undefined })
+      setResults(data)
+    } catch {
+      setResults([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { search() }, [])
+
+  const cancel = async () => {
+    if (!target || cancelling) return
+    setCancelling(true)
+    try {
+      await bookingsApi.cancel(target.referenceNumber)
+      await refreshRooms()
+      showToast(`${target.referenceNumber} cancelled.`)
+      setTarget(null)
+      search()
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Failed to cancel booking.')
+    } finally {
+      setCancelling(false)
+    }
   }
 
   return (
@@ -737,13 +869,17 @@ function Registry({ bookings, setBookings, setRooms, showToast }) {
       <PageTitle eyebrow="Registry" title="Search and cancel reservations" text="Staff can inspect active bookings and cancel with confirmation." />
       <div className="search-panel inline">
         <Input label="Guest Name" value={query} onChange={setQuery} />
+        <button className="primary-button" type="button" disabled={loading} onClick={search}>Search</button>
       </div>
-      <BookingTable bookings={results} onCancel={setTarget} />
+      {loading ? <EmptyState title="Loading…" /> : <BookingTable bookings={results} onCancel={setTarget} />}
+      {results.length === 0 && !loading ? <EmptyState title="No active bookings found." /> : null}
       {target ? (
         <Modal title={`Cancel ${target.referenceNumber}`} onClose={() => setTarget(null)}>
           <p>{target.guestName} in room {target.roomNumber} will be cancelled and the room will return to vacant status.</p>
           <div className="button-row">
-            <button className="danger-button" type="button" onClick={cancel}>Yes, Cancel</button>
+            <button className="danger-button" type="button" disabled={cancelling} onClick={cancel}>
+              {cancelling ? 'Cancelling…' : 'Yes, Cancel'}
+            </button>
             <button className="outline-button" type="button" onClick={() => setTarget(null)}>Go Back</button>
           </div>
         </Modal>
@@ -752,38 +888,67 @@ function Registry({ bookings, setBookings, setRooms, showToast }) {
   )
 }
 
-function Checkout({ bookings, setBookings, setRooms, navigate, showToast }) {
+// ─── Checkout ─────────────────────────────────────────────────────────────────
+
+function Checkout({ navigate, showToast, refreshRooms }) {
   const [ref, setRef] = useState('')
   const [booking, setBooking] = useState(null)
   const [error, setError] = useState('')
+  const [looking, setLooking] = useState(false)
+  const [checking, setChecking] = useState(false)
 
-  const lookup = () => {
-    const found = bookings.find((item) => item.referenceNumber === ref.trim().toUpperCase() && item.status === 'Active')
-    setBooking(found || null)
-    setError(found ? '' : 'Reference number not found.')
+  const lookup = async () => {
+    setLooking(true)
+    setError('')
+    setBooking(null)
+    try {
+      const found = await bookingsApi.get(ref.trim().toUpperCase())
+      if (found.status !== 'Active') {
+        setError(`Booking ${ref} is not active (status: ${found.status}).`)
+      } else {
+        setBooking(found)
+      }
+    } catch {
+      setError('Reference number not found.')
+    } finally {
+      setLooking(false)
+    }
   }
 
-  const checkout = () => {
-    setBookings((current) => current.map((item) => item.referenceNumber === booking.referenceNumber ? { ...item, status: 'CheckedOut' } : item))
-    setRooms((current) => current.map((room) => room.id === booking.roomId ? { ...room, isAvailable: true } : room))
-    showToast(`${booking.referenceNumber} checked out. Room is now vacant.`)
-    navigate('/staff')
+  const checkout = async () => {
+    if (!booking || checking) return
+    setChecking(true)
+    try {
+      await bookingsApi.checkout(booking.referenceNumber)
+      await refreshRooms()
+      showToast(`${booking.referenceNumber} checked out. Room is now vacant.`)
+      navigate('/staff')
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Checkout failed.')
+    } finally {
+      setChecking(false)
+    }
   }
 
   return (
     <section className="page narrow">
       <PageTitle eyebrow="Checkout" title="Guest checkout" text="Fetch a booking, verify payment, and finalize the guest stay." />
       <div className="search-panel">
-        <Input label="Reference Number" value={ref} onChange={(value) => setRef(value.toUpperCase())} />
-        <button className="primary-button" type="button" onClick={lookup}>Lookup</button>
+        <Input label="Reference Number" value={ref} onChange={(v) => setRef(v.toUpperCase())} />
+        <button className="primary-button" type="button" disabled={looking} onClick={lookup}>
+          {looking ? 'Looking…' : 'Lookup'}
+        </button>
       </div>
       <ErrorText message={error} />
       {booking ? (
         <div className="detail-card">
-          <div className="split-heading"><h2>{booking.guestName}</h2><Badge status={booking.isPaid ? 'Paid' : 'Unpaid'} /></div>
+          <div className="split-heading">
+            <h2>{booking.guestName}</h2>
+            <Badge status={booking.isPaid ? 'Paid' : 'Unpaid'} />
+          </div>
           <BillRows rows={[
             ['Room', `${booking.roomNumber} - ${booking.roomType}`],
-            ['Dates', `${booking.checkIn} to ${booking.checkOut}`],
+            ['Dates', `${booking.checkIn?.slice(0, 10)} to ${booking.checkOut?.slice(0, 10)}`],
             ['Final Amount', formatCurrency(booking.finalAmount)],
           ]} />
           {!booking.isPaid ? (
@@ -793,7 +958,9 @@ function Checkout({ bookings, setBookings, setRooms, navigate, showToast }) {
               <button className="primary-button" type="button" onClick={() => navigate(`/payment/${booking.referenceNumber}`)}>Go to Payment</button>
             </div>
           ) : (
-            <button className="primary-button" type="button" onClick={checkout}>Confirm Checkout</button>
+            <button className="primary-button" type="button" disabled={checking} onClick={checkout}>
+              {checking ? 'Checking out…' : 'Confirm Checkout'}
+            </button>
           )}
         </div>
       ) : null}
@@ -801,15 +968,17 @@ function Checkout({ bookings, setBookings, setRooms, navigate, showToast }) {
   )
 }
 
-function Inquiry({ rooms }) {
+// ─── Inquiry ──────────────────────────────────────────────────────────────────
+
+function Inquiry({ rooms, amenities }) {
   const [tab, setTab] = useState('Room Rates')
   const [category, setCategory] = useState('Classic')
   const [amenityCategory, setAmenityCategory] = useState('Convenience')
-  const roomRows = rooms.filter((room) => room.category === category)
+  const roomRows = rooms.filter((r) => r.category === category)
 
   return (
     <section className="page">
-      <PageTitle eyebrow="Inquiry hub" title="Rates, amenities, and availability" text="Client-side tabs for the inquiry menu and its sub-functions." />
+      <PageTitle eyebrow="Inquiry hub" title="Rates, amenities, and availability" text="Browse room rates, amenity pricing, and live availability from the backend." />
       <FilterBar value={tab} setValue={setTab} items={['Room Rates', 'Amenities', 'Availability']} />
       {tab !== 'Amenities' ? <Select label="Room Category" value={category} options={categories.slice(1)} onChange={setCategory} /> : null}
       {tab === 'Amenities' ? <Select label="Amenity Category" value={amenityCategory} options={amenityCategories} onChange={setAmenityCategory} /> : null}
@@ -817,18 +986,39 @@ function Inquiry({ rooms }) {
         {tab === 'Amenities' ? (
           <table>
             <thead><tr><th>Code</th><th>Name</th><th>Price</th><th>Billing</th></tr></thead>
-            <tbody>{seedAmenities.filter((item) => item.category === amenityCategory).map((item) => <tr key={item.code}><td className="mono">{item.code}</td><td>{item.name}</td><td>{formatCurrency(item.price)}</td><td>{item.type}</td></tr>)}</tbody>
+            <tbody>
+              {amenities.filter((a) => a.category === amenityCategory).map((a) => (
+                <tr key={a.code}>
+                  <td className="mono">{a.code}</td>
+                  <td>{a.name}</td>
+                  <td>{formatCurrency(a.price)}</td>
+                  <td>{a.type}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         ) : (
           <table>
             <thead><tr><th>Room</th><th>Category</th><th>Bedrooms</th><th>Rate</th><th>Status</th></tr></thead>
-            <tbody>{roomRows.map((room) => <tr key={room.id}><td className="mono">{room.roomNumber}</td><td>{room.category}</td><td>{room.bedrooms}</td><td>{formatCurrency(room.pricePerNight)}</td><td><Badge status={room.isAvailable ? 'Vacant' : 'Occupied'} /></td></tr>)}</tbody>
+            <tbody>
+              {roomRows.map((r) => (
+                <tr key={r._id}>
+                  <td className="mono">{r.roomNumber}</td>
+                  <td>{r.category}</td>
+                  <td>{r.bedrooms}</td>
+                  <td>{formatCurrency(r.pricePerNight)}</td>
+                  <td><Badge status={r.isAvailable ? 'Vacant' : 'Occupied'} /></td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         )}
       </div>
     </section>
   )
 }
+
+// ─── Shared Components ────────────────────────────────────────────────────────
 
 function PageTitle({ eyebrow, title, text }) {
   return (
@@ -843,7 +1033,9 @@ function PageTitle({ eyebrow, title, text }) {
 function FilterBar({ value, setValue, items }) {
   return (
     <div className="filter-bar">
-      {items.map((item) => <button className={value === item ? 'active' : ''} type="button" key={item} onClick={() => setValue(item)}>{item}</button>)}
+      {items.map((item) => (
+        <button className={value === item ? 'active' : ''} type="button" key={item} onClick={() => setValue(item)}>{item}</button>
+      ))}
     </div>
   )
 }
@@ -851,7 +1043,7 @@ function FilterBar({ value, setValue, items }) {
 function RoomGrid({ rooms, navigate, details = false }) {
   return (
     <div className="room-grid">
-      {rooms.map((room) => <RoomCard room={room} key={room.id} navigate={navigate} details={details} />)}
+      {rooms.map((room) => <RoomCard room={room} key={room._id} navigate={navigate} details={details} />)}
     </div>
   )
 }
@@ -870,7 +1062,9 @@ function RoomCard({ room, navigate, details }) {
       </dl>
       <div className="card-actions">
         {details ? <button className="outline-button" type="button" onClick={() => navigate(`/rooms/${room.roomNumber}`)}>View Details</button> : null}
-        <button className="primary-button" type="button" disabled={!room.isAvailable} onClick={() => navigate('/reserve')}>{room.isAvailable ? 'Reserve' : 'Unavailable'}</button>
+        <button className="primary-button" type="button" disabled={!room.isAvailable} onClick={() => navigate('/reserve')}>
+          {room.isAvailable ? 'Reserve' : 'Unavailable'}
+        </button>
       </div>
     </article>
   )
@@ -885,7 +1079,7 @@ function BookingCard({ booking, navigate }) {
       </div>
       <BillRows rows={[
         ['Reference', booking.referenceNumber],
-        ['Dates', `${booking.checkIn} to ${booking.checkOut}`],
+        ['Dates', `${booking.checkIn?.slice(0, 10)} to ${booking.checkOut?.slice(0, 10)}`],
         ['Room', `${booking.roomType} ${booking.roomNumber}`],
         ['Room Rate', formatCurrency(booking.roomRate)],
       ]} />
@@ -905,8 +1099,8 @@ function BookingTable({ bookings, onCancel }) {
               <td>{booking.roomNumber}</td>
               <td>{booking.roomType}</td>
               <td>{booking.guestName}</td>
-              <td>{booking.checkIn}</td>
-              <td>{booking.checkOut}</td>
+              <td>{booking.checkIn?.slice(0, 10)}</td>
+              <td>{booking.checkOut?.slice(0, 10)}</td>
               <td><Badge status={booking.status} /></td>
               <td><button className="danger-link" type="button" onClick={() => onCancel(booking)}>Cancel</button></td>
             </tr>
@@ -933,7 +1127,11 @@ function BillRows({ rows, strongLast = false }) {
 function StepIndicator({ step, labels }) {
   return (
     <ol className="step-indicator">
-      {labels.map((label, index) => <li className={step === index + 1 ? 'active' : step > index + 1 ? 'done' : ''} key={label}><span>{index + 1}</span>{label}</li>)}
+      {labels.map((label, index) => (
+        <li className={step === index + 1 ? 'active' : step > index + 1 ? 'done' : ''} key={label}>
+          <span>{index + 1}</span>{label}
+        </li>
+      ))}
     </ol>
   )
 }
@@ -947,7 +1145,7 @@ function Input({ label, value, onChange, error, type = 'text', ...props }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} {...props} />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} {...props} />
       <ErrorText message={error} />
     </label>
   )
@@ -957,7 +1155,7 @@ function Select({ label, value, options, onChange }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((option) => <option value={option} key={option}>{option}</option>)}
       </select>
     </label>
@@ -997,6 +1195,15 @@ function EmptyState({ title }) {
   )
 }
 
+function LoadingPage() {
+  return (
+    <div className="empty-state" style={{ minHeight: '40vh' }}>
+      <span className="empty-icon">⋯</span>
+      <strong>Loading…</strong>
+    </div>
+  )
+}
+
 function ErrorText({ message }) {
   return message ? <small className="error-text">{message}</small> : null
 }
@@ -1004,27 +1211,10 @@ function ErrorText({ message }) {
 function NotFound({ navigate }) {
   return (
     <section className="page narrow">
-      <PageTitle eyebrow="Not found" title="This page is unavailable" text="The route or record could not be found in the frontend demo data." />
+      <PageTitle eyebrow="Not found" title="This page is unavailable" text="The route or record could not be found." />
       <button className="primary-button" type="button" onClick={() => navigate('/')}>Back to Availability</button>
     </section>
   )
-}
-
-function amenityCost(amenity, booking) {
-  if (!booking) return 0
-  if (amenity.type === 'PerNight') return amenity.price * booking.numberOfDays
-  if (amenity.type === 'PerGuest') return amenity.price * booking.numberOfGuests
-  return amenity.price
-}
-
-function roomRange(rooms, category) {
-  const values = rooms.filter((room) => room.category === category).map((room) => room.bedrooms)
-  return `${Math.min(...values)}-${Math.max(...values)} bedrooms`
-}
-
-function priceRange(rooms, category) {
-  const values = rooms.filter((room) => room.category === category).map((room) => room.pricePerNight)
-  return `${formatCurrency(Math.min(...values))} to ${formatCurrency(Math.max(...values))}`
 }
 
 export default App
