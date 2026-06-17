@@ -57,6 +57,11 @@ function App() {
   const [toast, setToast] = useState('')
   const [staffAuthed, setStaffAuthed] = useState(false)
 
+  const showToast = (message) => {
+    setToast(message)
+    window.setTimeout(() => setToast(''), 3600)
+  }
+
   // Load initial data from backend
   useEffect(() => {
     async function bootstrap() {
@@ -67,7 +72,7 @@ function App() {
         ])
         setRooms(fetchedRooms)
         setAmenities(fetchedAmenities)
-      } catch (err) {
+      } catch {
         showToast('Failed to connect to server. Please check the backend.')
       } finally {
         setLoading(false)
@@ -87,11 +92,6 @@ function App() {
     setPath(to)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  const showToast = useCallback((message) => {
-    setToast(message)
-    window.setTimeout(() => setToast(''), 3600)
-  }, [])
 
   const refreshRooms = useCallback(async () => {
     try {
@@ -834,7 +834,7 @@ function Registry({ showToast, refreshRooms }) {
   const [loading, setLoading] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
-  const search = async () => {
+  const search = useCallback(async () => {
     setLoading(true)
     try {
       const data = await bookingsApi.list({ status: 'Active', guestName: query || undefined })
@@ -844,9 +844,14 @@ function Registry({ showToast, refreshRooms }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [query])
 
-  useEffect(() => { search() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      search()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
   const cancel = async () => {
     if (!target || cancelling) return

@@ -1,11 +1,11 @@
 {
-  "name": "server",
+  "name": "backend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js",
+    "dev": "node index.js",
     "start": "node index.js",
     "lint": "node scripts/check-syntax.js",
     "seed": "node seed/seed.js"
