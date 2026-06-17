@@ -1,18 +1,30 @@
 import mongoose from 'mongoose'
+import { Booking } from '../models/Booking.js'
 import { Room } from '../models/Room.js'
 import { createHttpError } from '../utils/apiResponse.js'
 
 export async function listRooms(filters = {}) {
   const query = {}
 
-  if (filters.available === 'true') query.isAvailable = true
-  if (filters.available === 'false') query.isAvailable = false
+  if (filters.checkIn && filters.checkOut) {
+    const conflictingRoomIds = await getConflictingRoomIds(filters.checkIn, filters.checkOut)
+    query._id = { $nin: conflictingRoomIds }
+  } else {
+    if (filters.available === 'true') query.isAvailable = true
+    if (filters.available === 'false') query.isAvailable = false
+  }
+
   if (filters.category) query.category = filters.category
 
   return Room.find(query).sort({ roomNumber: 1 })
 }
 
-export async function getVacantRooms() {
+export async function getVacantRooms(checkIn, checkOut) {
+  if (checkIn && checkOut) {
+    const conflictingRoomIds = await getConflictingRoomIds(checkIn, checkOut)
+    return Room.find({ _id: { $nin: conflictingRoomIds } }).sort({ roomNumber: 1 })
+  }
+
   return Room.find({ isAvailable: true }).sort({ roomNumber: 1 })
 }
 
@@ -40,4 +52,14 @@ export async function updateAvailability(idOrRoomNumber, isAvailable) {
 
 export async function getRatesByCategory(category) {
   return Room.find({ category }).sort({ bedrooms: 1, pricePerNight: 1 })
+}
+
+async function getConflictingRoomIds(checkIn, checkOut) {
+  const conflictingBookings = await Booking.find({
+    status: 'Active',
+    checkIn: { $lt: new Date(checkOut) },
+    checkOut: { $gt: new Date(checkIn) },
+  }).select('roomRef')
+
+  return conflictingBookings.map((booking) => booking.roomRef)
 }

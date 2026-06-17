@@ -57,10 +57,10 @@ function App() {
   const [toast, setToast] = useState('')
   const [staffAuthed, setStaffAuthed] = useState(false)
 
-  const showToast = (message) => {
+  const showToast = useCallback((message) => {
     setToast(message)
     window.setTimeout(() => setToast(''), 3600)
-  }
+  }, [])
 
   // Load initial data from backend
   useEffect(() => {
@@ -79,7 +79,7 @@ function App() {
       }
     }
     bootstrap()
-  }, [])
+  }, [showToast])
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname)
@@ -319,7 +319,7 @@ function RoomDetail({ roomNumber, rooms, navigate }) {
           <div><dt>Room Number</dt><dd>{room.roomNumber}</dd></div>
           <div><dt>Status</dt><dd>{room.isAvailable ? 'Available for reservation' : 'Currently occupied'}</dd></div>
         </dl>
-        <button className="primary-button" type="button" disabled={!room.isAvailable} onClick={() => navigate('/reserve')}>
+        <button className="primary-button" type="button" onClick={() => navigate('/reserve')}>
           Reserve This Room
         </button>
       </div>
@@ -341,12 +341,43 @@ function Reserve({ rooms, navigate, showToast, refreshRooms }) {
   })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [vacantRooms, setVacantRooms] = useState([])
+  const [loadingVacantRooms, setLoadingVacantRooms] = useState(false)
 
   const days = dateDiff(form.checkIn, form.checkOut)
   const selectedRoom = rooms.find((r) => r._id === form.roomId)
   const roomRate = selectedRoom ? selectedRoom.pricePerNight * (days + 1) : 0
 
-  const update = (key, value) => setForm((cur) => ({ ...cur, [key]: value }))
+  const update = (key, value) => setForm((cur) => ({
+    ...cur,
+    [key]: value,
+    roomId: ['checkIn', 'checkOut', 'category'].includes(key) ? '' : cur.roomId,
+  }))
+
+  useEffect(() => {
+    let ignore = false
+
+    async function fetchVacantRooms() {
+      if (step !== 3 || !form.checkIn || !form.checkOut || !days) return
+      setLoadingVacantRooms(true)
+      try {
+        const fetchedRooms = await roomsApi.vacant(form.checkIn, form.checkOut)
+        if (!ignore) setVacantRooms(fetchedRooms)
+      } catch {
+        if (!ignore) {
+          setVacantRooms([])
+          showToast('Failed to load vacant rooms for the selected dates.')
+        }
+      } finally {
+        if (!ignore) setLoadingVacantRooms(false)
+      }
+    }
+
+    fetchVacantRooms()
+    return () => {
+      ignore = true
+    }
+  }, [step, form.checkIn, form.checkOut, days, showToast])
 
   const validateStep = () => {
     const errs = {}
@@ -386,7 +417,7 @@ function Reserve({ rooms, navigate, showToast, refreshRooms }) {
     }
   }
 
-  const vacantInCategory = rooms.filter((r) => r.category === form.category && r.isAvailable)
+  const vacantInCategory = vacantRooms.filter((r) => r.category === form.category)
 
   return (
     <section className="page narrow">
@@ -427,7 +458,7 @@ function Reserve({ rooms, navigate, showToast, refreshRooms }) {
               <table>
                 <thead><tr><th>Room</th><th>Bedrooms</th><th>Rate</th><th>Status</th><th></th></tr></thead>
                 <tbody>
-                  {vacantInCategory.map((room) => (
+                  {!loadingVacantRooms && vacantInCategory.map((room) => (
                     <tr key={room._id}>
                       <td className="mono">{room.roomNumber}</td>
                       <td>{room.bedrooms}</td>
@@ -443,7 +474,8 @@ function Reserve({ rooms, navigate, showToast, refreshRooms }) {
                 </tbody>
               </table>
             </div>
-            {vacantInCategory.length === 0 ? <EmptyState title={`No vacant ${form.category} rooms available.`} /> : null}
+            {loadingVacantRooms ? <EmptyState title="Loading vacant rooms..." /> : null}
+            {!loadingVacantRooms && vacantInCategory.length === 0 ? <EmptyState title={`No vacant ${form.category} rooms available.`} /> : null}
             <ErrorText message={errors.roomId} />
           </div>
         ) : null}
@@ -1067,8 +1099,8 @@ function RoomCard({ room, navigate, details }) {
       </dl>
       <div className="card-actions">
         {details ? <button className="outline-button" type="button" onClick={() => navigate(`/rooms/${room.roomNumber}`)}>View Details</button> : null}
-        <button className="primary-button" type="button" disabled={!room.isAvailable} onClick={() => navigate('/reserve')}>
-          {room.isAvailable ? 'Reserve' : 'Unavailable'}
+        <button className="primary-button" type="button" onClick={() => navigate('/reserve')}>
+          Reserve
         </button>
       </div>
     </article>

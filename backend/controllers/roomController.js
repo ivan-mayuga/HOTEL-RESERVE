@@ -5,8 +5,8 @@ export async function listRooms(req, res) {
   sendData(res, await roomService.listRooms(req.query))
 }
 
-export async function getVacantRooms(_req, res) {
-  sendData(res, await roomService.getVacantRooms())
+export async function getVacantRooms(req, res) {
+  sendData(res, await roomService.getVacantRooms(req.query.checkIn, req.query.checkOut))
 }
 
 export async function getRoom(req, res) {

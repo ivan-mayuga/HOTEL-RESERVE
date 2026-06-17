@@ -12,12 +12,22 @@ router.get(
   [
     query('available').optional().isIn(['true', 'false']).withMessage('available must be true or false'),
     query('category').optional().isIn(roomCategories).withMessage('Invalid room category'),
+    query('checkIn').optional().isISO8601().withMessage('checkIn must be a valid ISO date'),
+    query('checkOut').optional().isISO8601().withMessage('checkOut must be a valid ISO date'),
   ],
   validateRequest,
   asyncHandler(roomController.listRooms),
 )
 
-router.get('/vacant', asyncHandler(roomController.getVacantRooms))
+router.get(
+  '/vacant',
+  [
+    query('checkIn').optional().isISO8601().withMessage('checkIn must be a valid ISO date'),
+    query('checkOut').optional().isISO8601().withMessage('checkOut must be a valid ISO date'),
+  ],
+  validateRequest,
+  asyncHandler(roomController.getVacantRooms),
+)
 router.get('/:id', asyncHandler(roomController.getRoom))
 
 router.post(

@@ -33,7 +33,17 @@ export async function createReservation(payload) {
   const room = await Room.findById(payload.roomId)
 
   if (!room) throw createHttpError('Room not found', 404)
-  if (!room.isAvailable) throw createHttpError('Room is not available', 409)
+
+  const conflictingBooking = await Booking.findOne({
+    roomRef: room._id,
+    status: 'Active',
+    checkIn: { $lt: stay.checkOut },
+    checkOut: { $gt: stay.checkIn },
+  })
+
+  if (conflictingBooking) {
+    throw createHttpError('Room is not available for the selected dates', 409)
+  }
 
   const referenceNumber = await generate('B', Booking, 'referenceNumber')
   const roomRate = room.pricePerNight * (stay.numberOfDays + 1)
@@ -59,7 +69,6 @@ export async function createReservation(payload) {
     })
 
     await booking.save(session ? { session } : undefined)
-    await Room.updateOne({ _id: room._id }, { isAvailable: false }, session ? { session } : undefined)
     return booking
   })
 }
@@ -77,7 +86,6 @@ export async function checkoutGuest(referenceNumber) {
   return runWithTransaction(async (session) => {
     booking.status = 'CheckedOut'
     await booking.save(session ? { session } : undefined)
-    await Room.updateOne({ _id: booking.roomRef }, { isAvailable: true }, session ? { session } : undefined)
     return booking
   })
 }
@@ -95,7 +103,6 @@ export async function cancelReservation(referenceNumber) {
   return runWithTransaction(async (session) => {
     booking.status = 'Cancelled'
     await booking.save(session ? { session } : undefined)
-    await Room.updateOne({ _id: booking.roomRef }, { isAvailable: true }, session ? { session } : undefined)
     return booking
   })
 }
