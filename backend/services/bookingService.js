@@ -46,7 +46,7 @@ export async function createReservation(payload) {
   }
 
   const referenceNumber = await generate('B', Booking, 'referenceNumber')
-  const roomRate = room.pricePerNight * (stay.numberOfDays + 1)
+  const roomRate = room.pricePerNight * stay.numberOfDays
 
   return runWithTransaction(async (session) => {
     const booking = new Booking({

@@ -345,13 +345,13 @@ function Reserve({ rooms, navigate, showToast, refreshRooms }) {
   const [loadingVacantRooms, setLoadingVacantRooms] = useState(false)
 
   const days = dateDiff(form.checkIn, form.checkOut)
-  const selectedRoom = rooms.find((r) => r._id === form.roomId)
-  const roomRate = selectedRoom ? selectedRoom.pricePerNight * (days + 1) : 0
+  const selectedRoom = vacantRooms.find((r) => r._id === form.roomId) || rooms.find((r) => r._id === form.roomId)
+  const roomRate = selectedRoom ? selectedRoom.pricePerNight * days : 0
 
   const update = (key, value) => setForm((cur) => ({
     ...cur,
     [key]: value,
-    roomId: ['checkIn', 'checkOut', 'category'].includes(key) ? '' : cur.roomId,
+    roomId: ['checkIn', 'checkOut', 'category'].includes(key) ? '' : (key === 'roomId' ? value : cur.roomId),
   }))
 
   useEffect(() => {
