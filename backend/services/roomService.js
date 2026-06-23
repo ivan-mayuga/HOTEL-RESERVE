@@ -9,6 +9,7 @@ export async function listRooms(filters = {}) {
   if (filters.checkIn && filters.checkOut) {
     const conflictingRoomIds = await getConflictingRoomIds(filters.checkIn, filters.checkOut)
     query._id = { $nin: conflictingRoomIds }
+    query.isAvailable = true
   } else {
     if (filters.available === 'true') query.isAvailable = true
     if (filters.available === 'false') query.isAvailable = false
@@ -22,7 +23,7 @@ export async function listRooms(filters = {}) {
 export async function getVacantRooms(checkIn, checkOut) {
   if (checkIn && checkOut) {
     const conflictingRoomIds = await getConflictingRoomIds(checkIn, checkOut)
-    return Room.find({ _id: { $nin: conflictingRoomIds } }).sort({ roomNumber: 1 })
+    return Room.find({ _id: { $nin: conflictingRoomIds }, isAvailable: true }).sort({ roomNumber: 1 })
   }
 
   return Room.find({ isAvailable: true }).sort({ roomNumber: 1 })
@@ -42,6 +43,23 @@ export async function createRoom(payload) {
   const existing = await Room.findOne({ roomNumber: payload.roomNumber })
   if (existing) throw createHttpError('Room number already exists', 409)
   return Room.create(payload)
+}
+
+export async function updateRoom(idOrRoomNumber, payload) {
+  const room = await getRoomById(idOrRoomNumber)
+  const fields = ['roomNumber', 'category', 'bedrooms', 'pricePerNight', 'isAvailable']
+  fields.forEach((field) => {
+    if (payload[field] !== undefined) room[field] = payload[field]
+  })
+  return room.save()
+}
+
+export async function deleteRoom(idOrRoomNumber) {
+  const room = await getRoomById(idOrRoomNumber)
+  const activeBooking = await Booking.findOne({ roomRef: room._id, status: 'Active' })
+  if (activeBooking) throw createHttpError('Rooms with active bookings cannot be deleted', 409)
+  await room.deleteOne()
+  return room
 }
 
 export async function updateAvailability(idOrRoomNumber, isAvailable) {

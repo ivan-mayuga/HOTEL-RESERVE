@@ -2,6 +2,8 @@ import dotenv from 'dotenv'
 import { connectDb, disconnectDb } from '../config/db.js'
 import { Amenity } from '../models/Amenity.js'
 import { Room } from '../models/Room.js'
+import { User } from '../models/User.js'
+import bcrypt from 'bcrypt'
 
 dotenv.config()
 
@@ -30,9 +32,17 @@ async function seed() {
   await connectDb()
   await Room.deleteMany({})
   await Amenity.deleteMany({})
+  await User.deleteMany({})
   const insertedRooms = await Room.insertMany(rooms)
   const insertedAmenities = await Amenity.insertMany(amenities)
-  console.log(`Inserted ${insertedRooms.length} rooms and ${insertedAmenities.length} amenities.`)
+  const passwordHash = await bcrypt.hash(process.env.SEED_STAFF_PASSWORD || 'staff12345', 12)
+  await User.create({
+    name: 'Front Desk Admin',
+    staffId: process.env.SEED_STAFF_ID || 'frontdesk',
+    passwordHash,
+    role: 'admin',
+  })
+  console.log(`Inserted ${insertedRooms.length} rooms, ${insertedAmenities.length} amenities, and 1 staff user.`)
   await disconnectDb()
 }
 

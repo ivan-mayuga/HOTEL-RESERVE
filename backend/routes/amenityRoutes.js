@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { body, query } from 'express-validator'
 import { asyncHandler } from '../middleware/asyncHandler.js'
+import { requireAuth, requireRole } from '../middleware/authMiddleware.js'
 import { validateRequest } from '../middleware/validateRequest.js'
 import { amenityCategories, amenityTypes } from '../models/Amenity.js'
 import * as amenityController from '../controllers/amenityController.js'
@@ -22,9 +23,11 @@ router.get(
   asyncHandler(amenityController.listAmenities),
 )
 router.get('/:code', asyncHandler(amenityController.getAmenity))
-router.post('/', amenityBodyValidators, validateRequest, asyncHandler(amenityController.createAmenity))
+router.post('/', requireAuth, requireRole('staff', 'admin'), amenityBodyValidators, validateRequest, asyncHandler(amenityController.createAmenity))
 router.patch(
   '/:code',
+  requireAuth,
+  requireRole('staff', 'admin'),
   [
     body('name').optional().trim().isLength({ min: 1, max: 60 }).withMessage('Amenity name must be at most 60 characters'),
     body('price').optional().isFloat({ gt: 0 }).withMessage('Amenity price must be greater than 0'),
@@ -34,6 +37,6 @@ router.patch(
   validateRequest,
   asyncHandler(amenityController.updateAmenity),
 )
-router.delete('/:code', asyncHandler(amenityController.deleteAmenity))
+router.delete('/:code', requireAuth, requireRole('staff', 'admin'), asyncHandler(amenityController.deleteAmenity))
 
 export default router

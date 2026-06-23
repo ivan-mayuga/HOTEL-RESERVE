@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import { body, query } from 'express-validator'
 import { asyncHandler } from '../middleware/asyncHandler.js'
+import { requireAuth, requireRole } from '../middleware/authMiddleware.js'
+import { bookingRateLimiter } from '../middleware/rateLimiters.js'
 import { validateRequest } from '../middleware/validateRequest.js'
 import { bookingStatuses, paymentMethods } from '../models/Booking.js'
 import * as bookingController from '../controllers/bookingController.js'
@@ -21,6 +23,7 @@ router.get('/:referenceNumber', asyncHandler(bookingController.getBooking))
 
 router.post(
   '/',
+  bookingRateLimiter,
   [
     body('guestName').matches(/^[A-Za-z ]{2,}$/).withMessage('Guest name must contain letters and spaces only'),
     body('numberOfGuests').isInt({ min: 1 }).withMessage('Number of guests must be greater than 0'),
@@ -51,7 +54,7 @@ router.patch(
   asyncHandler(bookingController.payBooking),
 )
 
-router.patch('/:referenceNumber/checkout', asyncHandler(bookingController.checkoutBooking))
-router.delete('/:referenceNumber', asyncHandler(bookingController.cancelBooking))
+router.patch('/:referenceNumber/checkout', requireAuth, requireRole('staff', 'admin'), asyncHandler(bookingController.checkoutBooking))
+router.delete('/:referenceNumber', requireAuth, requireRole('staff', 'admin'), asyncHandler(bookingController.cancelBooking))
 
 export default router

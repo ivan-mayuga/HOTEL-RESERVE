@@ -5,7 +5,7 @@ import { formatWithCommas } from '../utils/priceFormatter.js'
 import { createHttpError } from '../utils/apiResponse.js'
 
 export async function generateReceipt(booking, options = {}) {
-  const orNumber = await generate('RCPT-', Receipt, 'orNumber')
+  const orNumber = await generate('receipt')
   const receipt = new Receipt({
     orNumber,
     bookingRef: booking._id,

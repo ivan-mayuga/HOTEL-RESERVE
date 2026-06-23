@@ -7,7 +7,7 @@ const receiptSchema = new mongoose.Schema({
     required: true,
     unique: true,
     index: true,
-    match: /^RCPT-\d{4}$/,
+    match: /^OR\d{6}$/,
     uppercase: true,
     trim: true,
   },

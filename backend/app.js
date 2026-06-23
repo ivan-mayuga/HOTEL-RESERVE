@@ -1,8 +1,10 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
+import mongoSanitize from 'express-mongo-sanitize'
 import morgan from 'morgan'
 import amenityRoutes from './routes/amenityRoutes.js'
+import authRoutes from './routes/authRoutes.js'
 import bookingRoutes from './routes/bookingRoutes.js'
 import receiptRoutes from './routes/receiptRoutes.js'
 import roomRoutes from './routes/roomRoutes.js'
@@ -17,6 +19,8 @@ app.use(cors({
   credentials: true,
 }))
 app.use(express.json())
+// Security-sensitive: strips MongoDB operator keys such as $ne/$where from client input.
+app.use(mongoSanitize())
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'))
@@ -32,6 +36,7 @@ app.get('/api/v1/health', (_req, res) => {
   })
 })
 
+app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/rooms', roomRoutes)
 app.use('/api/v1/bookings', bookingRoutes)
 app.use('/api/v1/amenities', amenityRoutes)

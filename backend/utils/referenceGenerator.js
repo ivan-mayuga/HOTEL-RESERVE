@@ -1,18 +1,20 @@
-export async function generate(prefix, Model, field) {
-  const docs = await Model.find({ [field]: new RegExp(`^${escapeRegex(prefix)}\\d{4}$`, 'i') })
-    .select(field)
-    .lean()
+import { Counter } from '../models/Counter.js'
 
-  const max = docs.reduce((highest, doc) => {
-    const raw = String(doc[field] || '')
-    const suffix = raw.replace(prefix, '')
-    const number = Number.parseInt(suffix, 10)
-    return Number.isFinite(number) && number > highest ? number : highest
-  }, 0)
-
-  return `${prefix}${String(max + 1).padStart(4, '0')}`
+const formats = {
+  booking: { prefix: 'B', width: 6 },
+  receipt: { prefix: 'OR', width: 6 },
 }
 
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+export async function generate(counterName) {
+  const format = formats[counterName]
+  if (!format) throw new Error(`Unknown reference counter: ${counterName}`)
+
+  // Security-sensitive/concurrency-sensitive: MongoDB applies $inc atomically per document.
+  const counter = await Counter.findOneAndUpdate(
+    { _id: counterName },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true },
+  )
+
+  return `${format.prefix}${String(counter.seq).padStart(format.width, '0')}`
 }

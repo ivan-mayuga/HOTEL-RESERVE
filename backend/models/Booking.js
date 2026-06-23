@@ -11,7 +11,7 @@ const bookingSchema = new mongoose.Schema(
       required: true,
       unique: true,
       index: true,
-      match: /^B\d{4}$/,
+      match: /^B\d{6}$/,
       uppercase: true,
       trim: true,
     },

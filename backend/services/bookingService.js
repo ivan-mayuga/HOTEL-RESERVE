@@ -30,9 +30,9 @@ export async function getBookingByReference(referenceNumber) {
 export async function createReservation(payload) {
   validateGuestPayload(payload)
   const stay = validateStayDates(payload.checkIn, payload.checkOut)
-  const room = await Room.findById(payload.roomId)
+  const room = await Room.findOne({ _id: payload.roomId, isAvailable: true })
 
-  if (!room) throw createHttpError('Room not found', 404)
+  if (!room) throw createHttpError('Room is not available', 404)
 
   const conflictingBooking = await Booking.findOne({
     roomRef: room._id,
@@ -45,7 +45,7 @@ export async function createReservation(payload) {
     throw createHttpError('Room is not available for the selected dates', 409)
   }
 
-  const referenceNumber = await generate('B', Booking, 'referenceNumber')
+  const referenceNumber = await generate('booking')
   const roomRate = room.pricePerNight * stay.numberOfDays
 
   return runWithTransaction(async (session) => {
