@@ -51,17 +51,19 @@ beforeEach(async () => {
   token = login.body.data.token
 })
 
+function authed(requestBuilder) {
+  return requestBuilder.set('Authorization', `Bearer ${token}`)
+}
+
 describe('booking logic', () => {
   test('allows non-overlapping bookings', async () => {
     const room = await Room.create({ roomNumber: 101, category: 'Classic', bedrooms: 1, pricePerNight: 2800 })
 
-    await request(app)
-      .post('/api/v1/bookings')
+    await authed(request(app).post('/api/v1/bookings'))
       .send({ guestName: 'Ada Lovelace', numberOfGuests: 1, checkIn: '2026-07-01', checkOut: '2026-07-03', roomId: room._id })
       .expect(201)
 
-    const response = await request(app)
-      .post('/api/v1/bookings')
+    const response = await authed(request(app).post('/api/v1/bookings'))
       .send({ guestName: 'Grace Hopper', numberOfGuests: 1, checkIn: '2026-07-03', checkOut: '2026-07-05', roomId: room._id })
       .expect(201)
 
@@ -71,13 +73,11 @@ describe('booking logic', () => {
   test('rejects overlapping bookings', async () => {
     const room = await Room.create({ roomNumber: 102, category: 'Classic', bedrooms: 1, pricePerNight: 3000 })
 
-    await request(app)
-      .post('/api/v1/bookings')
+    await authed(request(app).post('/api/v1/bookings'))
       .send({ guestName: 'Ada Lovelace', numberOfGuests: 1, checkIn: '2026-07-01', checkOut: '2026-07-04', roomId: room._id })
       .expect(201)
 
-    await request(app)
-      .post('/api/v1/bookings')
+    await authed(request(app).post('/api/v1/bookings'))
       .send({ guestName: 'Grace Hopper', numberOfGuests: 1, checkIn: '2026-07-03', checkOut: '2026-07-05', roomId: room._id })
       .expect(409)
   })
@@ -93,10 +93,70 @@ describe('booking logic', () => {
         expect(response.body.data).toHaveLength(0)
       })
 
-    await request(app)
-      .post('/api/v1/bookings')
+    await authed(request(app).post('/api/v1/bookings'))
       .send({ guestName: 'Alan Turing', numberOfGuests: 2, checkIn: '2026-07-01', checkOut: '2026-07-03', roomId: room._id })
       .expect(404)
+  })
+
+  test('requires authentication to create bookings', async () => {
+    const room = await Room.create({ roomNumber: 202, category: 'De Luxe', bedrooms: 2, pricePerNight: 4600 })
+
+    await request(app)
+      .post('/api/v1/bookings')
+      .send({ guestName: 'Katherine Johnson', numberOfGuests: 2, checkIn: '2026-07-01', checkOut: '2026-07-03', roomId: room._id })
+      .expect(401)
+  })
+
+  test('generates unique sequential reference numbers for concurrent booking requests', async () => {
+    const guestNames = ['Ada Alpha', 'Grace Beta', 'Mary Gamma', 'Katherine Delta', 'Dorothy Epsilon']
+    const rooms = await Room.insertMany(
+      Array.from({ length: 5 }, (_, index) => ({
+        roomNumber: 410 + index,
+        category: 'Classic',
+        bedrooms: 1,
+        pricePerNight: 2500,
+      })),
+    )
+
+    const responses = await Promise.all(rooms.map((room, index) => (
+      authed(request(app).post('/api/v1/bookings'))
+        .send({
+          guestName: guestNames[index],
+          numberOfGuests: 1,
+          checkIn: '2026-08-01',
+          checkOut: '2026-08-03',
+          roomId: room._id,
+        })
+        .expect(201)
+    )))
+
+    const references = responses.map((response) => response.body.data.referenceNumber).sort()
+    expect(references).toEqual(['B000001', 'B000002', 'B000003', 'B000004', 'B000005'])
+  })
+
+  test('requires authentication and validates payment details before taking payment', async () => {
+    const room = await Room.create({ roomNumber: 203, category: 'De Luxe', bedrooms: 2, pricePerNight: 4600 })
+    const bookingResponse = await authed(request(app).post('/api/v1/bookings'))
+      .send({ guestName: 'Mary Jackson', numberOfGuests: 2, checkIn: '2026-07-01', checkOut: '2026-07-03', roomId: room._id })
+      .expect(201)
+
+    const referenceNumber = bookingResponse.body.data.referenceNumber
+
+    await request(app)
+      .patch(`/api/v1/bookings/${referenceNumber}/pay`)
+      .send({ paymentMethod: 'Cash', amountReceived: 9200 })
+      .expect(401)
+
+    await authed(request(app).patch(`/api/v1/bookings/${referenceNumber}/pay`))
+      .send({ paymentMethod: 'Cash', amountReceived: 100 })
+      .expect(400)
+
+    const paymentResponse = await authed(request(app).patch(`/api/v1/bookings/${referenceNumber}/pay`))
+      .send({ paymentMethod: 'Cash', amountReceived: 10000 })
+      .expect(200)
+
+    expect(paymentResponse.body.data.booking.isPaid).toBe(true)
+    expect(paymentResponse.body.data.receipt.orNumber).toMatch(/^OR\d{6}$/)
   })
 })
 

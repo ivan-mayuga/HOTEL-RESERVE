@@ -9,6 +9,7 @@ import bookingRoutes from './routes/bookingRoutes.js'
 import receiptRoutes from './routes/receiptRoutes.js'
 import roomRoutes from './routes/roomRoutes.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { apiRateLimiter } from './middleware/rateLimiters.js'
 
 dotenv.config()
 
@@ -21,6 +22,7 @@ app.use(cors({
 app.use(express.json())
 // Security-sensitive: strips MongoDB operator keys such as $ne/$where from client input.
 app.use(mongoSanitize())
+app.use('/api/v1', apiRateLimiter)
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'))

@@ -1,12 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import '../App.css'
+import { useCallback, useEffect, useState } from 'react'
 import { roomsApi } from '../api/roomsApi'
 import { bookingsApi } from '../api/bookingsApi'
 import { amenitiesApi } from '../api/amenitiesApi'
 import { receiptsApi } from '../api/receiptsApi'
 import { useAuth } from '../hooks/useAuth'
-import ProtectedRoute from '../routes/ProtectedRoute'
 
 const categories = ['All', 'Classic', 'De Luxe', 'Suite', 'Imperial Grand']
 const amenityCategories = ['Convenience', 'Pool', 'Spa']
@@ -48,216 +45,10 @@ function priceRange(rooms, category) {
   return `${formatCurrency(Math.min(...values))} to ${formatCurrency(Math.max(...values))}`
 }
 
-// ─── App Root ─────────────────────────────────────────────────────────────────
+// Page Components
 
-function App() {
-  const routerNavigate = useNavigate()
-  const location = useLocation()
-  const { isAuthenticated, logout } = useAuth()
-  const [rooms, setRooms] = useState([])
-  const [amenities, setAmenities] = useState([])
-  const [bookings, setBookings] = useState([])
-  const [receipts, setReceipts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState('')
 
-  const showToast = useCallback((message) => {
-    setToast(message)
-    window.setTimeout(() => setToast(''), 3600)
-  }, [])
-
-  // Load initial data from backend
-  useEffect(() => {
-    async function bootstrap() {
-      try {
-        const [fetchedRooms, fetchedAmenities] = await Promise.all([
-          roomsApi.list(),
-          amenitiesApi.list(),
-        ])
-        setRooms(fetchedRooms)
-        setAmenities(fetchedAmenities)
-      } catch {
-        showToast('Failed to connect to server. Please check the backend.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    bootstrap()
-  }, [showToast])
-
-  const navigate = (to) => {
-    routerNavigate(to)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  const refreshRooms = useCallback(async () => {
-    try {
-      const updated = await roomsApi.list()
-      setRooms(updated)
-    } catch {
-      /* silent */
-    }
-  }, [])
-
-  const refreshBookings = useCallback(async () => {
-    try {
-      const updated = await bookingsApi.list()
-      setBookings(updated)
-    } catch {
-      /* silent */
-    }
-  }, [])
-
-  const appState = {
-    rooms,
-    setRooms,
-    amenities,
-    bookings,
-    setBookings,
-    receipts,
-    setReceipts,
-    staffAuthed: isAuthenticated,
-    logout,
-    navigate,
-    showToast,
-    refreshRooms,
-    refreshBookings,
-  }
-
-  if (loading) {
-    return (
-      <div className="app-shell">
-        <div className="empty-state" style={{ minHeight: '100vh' }}>
-          <span className="empty-icon">⋯</span>
-          <strong>Connecting to server…</strong>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="app-shell">
-      <Navbar path={location.pathname} navigate={navigate} staffAuthed={isAuthenticated} logout={logout} />
-      <main>
-        <AppRoutes appState={appState} />
-      </main>
-      <Footer navigate={navigate} />
-      {toast ? <div className="toast">{toast}</div> : null}
-    </div>
-  )
-}
-
-// ─── Router ───────────────────────────────────────────────────────────────────
-
-function AppRoutes({ appState }) {
-  return (
-    <Routes>
-      <Route path="/" element={<Landing {...appState} />} />
-      <Route path="/rooms" element={<RoomsDirectory {...appState} />} />
-      <Route path="/rooms/:roomNumber" element={<RoomDetailRoute appState={appState} />} />
-      <Route path="/reserve" element={<Reserve {...appState} />} />
-      <Route path="/booking" element={<BookingLookup {...appState} />} />
-      <Route path="/booking/:refNumber" element={<BookingDetailRoute appState={appState} />} />
-      <Route path="/payment/:refNumber" element={<PaymentRoute appState={appState} />} />
-      <Route path="/payment/:refNumber/receipt" element={<ReceiptRoute appState={appState} />} />
-      <Route path="/staff/login" element={<StaffLogin {...appState} />} />
-      <Route path="/staff" element={<StaffDashboard {...appState} />} />
-      <Route path="/staff/registry" element={<ProtectedRoute><Registry {...appState} /></ProtectedRoute>} />
-      <Route path="/staff/checkout" element={<ProtectedRoute><Checkout {...appState} /></ProtectedRoute>} />
-      <Route path="/staff/rooms" element={<ProtectedRoute><RoomManagement {...appState} /></ProtectedRoute>} />
-      <Route path="/staff/amenities" element={<ProtectedRoute><AmenityManagement {...appState} /></ProtectedRoute>} />
-      <Route path="/staff/inquiry" element={<ProtectedRoute><Inquiry {...appState} /></ProtectedRoute>} />
-      <Route path="*" element={<NotFound navigate={appState.navigate} />} />
-    </Routes>
-  )
-}
-
-function RoomDetailRoute({ appState }) {
-  const { roomNumber } = useParams()
-  return <RoomDetail roomNumber={roomNumber} {...appState} />
-}
-
-function BookingDetailRoute({ appState }) {
-  const { refNumber } = useParams()
-  return <BookingDetail refNumber={refNumber} {...appState} />
-}
-
-function PaymentRoute({ appState }) {
-  const { refNumber } = useParams()
-  return <Payment refNumber={refNumber} {...appState} />
-}
-
-function ReceiptRoute({ appState }) {
-  const { refNumber } = useParams()
-  return <Receipt refNumber={refNumber} {...appState} />
-}
-
-// ─── Navbar ───────────────────────────────────────────────────────────────────
-
-function Navbar({ path, navigate, staffAuthed, logout }) {
-  const [open, setOpen] = useState(false)
-  const links = [
-    ['/', 'Availability'],
-    ['/rooms', 'Rooms'],
-    ['/reserve', 'Reserve'],
-    ['/booking', 'Booking'],
-    ['/staff', 'Staff'],
-  ]
-
-  return (
-    <header className="nav">
-      <button className="brand" type="button" onClick={() => navigate('/')}>
-        <span className="brand-mark">E</span>
-        <span>
-          <strong>Esplenin Hotel</strong>
-          <small>Reservation Management</small>
-        </span>
-      </button>
-      <button className="menu-button" type="button" onClick={() => setOpen(!open)} aria-label="Toggle navigation">
-        <span></span><span></span><span></span>
-      </button>
-      <nav className={open ? 'nav-links open' : 'nav-links'}>
-        {links.map(([href, label]) => (
-          <button
-            className={path === href || (href !== '/' && path.startsWith(href)) ? 'active' : ''}
-            key={href}
-            type="button"
-            onClick={() => { setOpen(false); navigate(href) }}
-          >
-            {label}
-          </button>
-        ))}
-        {staffAuthed ? (
-          <button className="outline-button small" type="button" onClick={() => { logout(); navigate('/staff/login') }}>Sign Out</button>
-        ) : (
-          <button className="primary-button small" type="button" onClick={() => navigate('/staff/login')}>Staff Login</button>
-        )}
-      </nav>
-    </header>
-  )
-}
-
-// ─── Footer ───────────────────────────────────────────────────────────────────
-
-function Footer({ navigate }) {
-  return (
-    <footer className="footer">
-      <div>
-        <strong>Esplenin Hotel</strong>
-        <p>Front desk operations, booking visibility, payment previews, and staff workflows.</p>
-      </div>
-      <div className="footer-links">
-        <button type="button" onClick={() => navigate('/reserve')}>Reserve</button>
-        <button type="button" onClick={() => navigate('/booking')}>Lookup</button>
-        <button type="button" onClick={() => navigate('/staff/inquiry')}>Inquiry</button>
-      </div>
-    </footer>
-  )
-}
-
-// ─── Landing ──────────────────────────────────────────────────────────────────
-
-function Landing({ rooms, navigate }) {
+export function Landing({ rooms, navigate }) {
   const [filter, setFilter] = useState('All')
   const filtered = filter === 'All' ? rooms : rooms.filter((r) => r.category === filter)
   const vacant = rooms.filter((r) => r.isAvailable).length
@@ -306,7 +97,7 @@ function Metric({ label, value }) {
 
 // ─── Rooms Directory ──────────────────────────────────────────────────────────
 
-function RoomsDirectory({ rooms, navigate }) {
+export function RoomsDirectory({ rooms, navigate }) {
   const [category, setCategory] = useState('All')
   const [availability, setAvailability] = useState('All')
   const filtered = rooms.filter((r) => {
@@ -327,7 +118,7 @@ function RoomsDirectory({ rooms, navigate }) {
   )
 }
 
-function RoomDetail({ roomNumber, rooms, navigate }) {
+export function RoomDetail({ roomNumber, rooms, navigate }) {
   const room = rooms.find((r) => String(r.roomNumber) === String(roomNumber))
   if (!room) return <NotFound navigate={navigate} />
   return (
@@ -352,7 +143,7 @@ function RoomDetail({ roomNumber, rooms, navigate }) {
 
 // ─── Reserve ──────────────────────────────────────────────────────────────────
 
-function Reserve({ rooms, navigate, showToast, refreshRooms }) {
+export function Reserve({ rooms, navigate, showToast, refreshRooms }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     checkIn: today(1),
@@ -532,7 +323,7 @@ function Reserve({ rooms, navigate, showToast, refreshRooms }) {
 
 // ─── Booking Lookup ───────────────────────────────────────────────────────────
 
-function BookingLookup({ navigate }) {
+export function BookingLookup({ navigate }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searched, setSearched] = useState(false)
@@ -571,7 +362,7 @@ function BookingLookup({ navigate }) {
 
 // ─── Booking Detail ───────────────────────────────────────────────────────────
 
-function BookingDetail({ refNumber, navigate }) {
+export function BookingDetail({ refNumber, navigate }) {
   const [booking, setBooking] = useState(null)
   const [notFound, setNotFound] = useState(false)
 
@@ -613,7 +404,7 @@ function BookingDetail({ refNumber, navigate }) {
 
 // ─── Payment ──────────────────────────────────────────────────────────────────
 
-function Payment({ refNumber, navigate, showToast, amenities }) {
+export function Payment({ refNumber, navigate, showToast, amenities }) {
   const [booking, setBooking] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [amenityCategory, setAmenityCategory] = useState('Convenience')
@@ -775,7 +566,7 @@ function Payment({ refNumber, navigate, showToast, amenities }) {
 
 // ─── Receipt ──────────────────────────────────────────────────────────────────
 
-function Receipt({ refNumber, navigate }) {
+export function Receipt({ refNumber, navigate }) {
   const [receipt, setReceipt] = useState(null)
   const [notFound, setNotFound] = useState(false)
 
@@ -832,7 +623,7 @@ function Receipt({ refNumber, navigate }) {
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
-function StaffLogin({ navigate, showToast }) {
+export function StaffLogin({ navigate, showToast }) {
   const { login } = useAuth()
   const [id, setId] = useState('frontdesk')
   const [password, setPassword] = useState('')
@@ -871,7 +662,7 @@ function StaffLogin({ navigate, showToast }) {
   )
 }
 
-function StaffDashboard({ staffAuthed, navigate }) {
+export function StaffDashboard({ staffAuthed, navigate }) {
   if (!staffAuthed) return <StaffLanding navigate={navigate} />
   return (
     <section className="page">
@@ -898,7 +689,7 @@ function StaffLanding({ navigate }) {
 
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
-function Registry({ showToast, refreshRooms }) {
+export function Registry({ showToast, refreshRooms }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [target, setTarget] = useState(null)
@@ -966,7 +757,7 @@ function Registry({ showToast, refreshRooms }) {
 
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
-function Checkout({ navigate, showToast, refreshRooms }) {
+export function Checkout({ navigate, showToast, refreshRooms }) {
   const [ref, setRef] = useState('')
   const [booking, setBooking] = useState(null)
   const [error, setError] = useState('')
@@ -1046,7 +837,7 @@ function Checkout({ navigate, showToast, refreshRooms }) {
 
 // ─── Inquiry ──────────────────────────────────────────────────────────────────
 
-function RoomManagement({ rooms, refreshRooms, showToast }) {
+export function RoomManagement({ rooms, refreshRooms, showToast }) {
   const [form, setForm] = useState({ roomNumber: '', category: 'Classic', bedrooms: 1, pricePerNight: '' })
   const [saving, setSaving] = useState(false)
 
@@ -1113,7 +904,7 @@ function RoomManagement({ rooms, refreshRooms, showToast }) {
   )
 }
 
-function AmenityManagement({ amenities, setAmenities, showToast }) {
+export function AmenityManagement({ amenities, setAmenities, showToast }) {
   const [form, setForm] = useState({ code: '', name: '', price: '', type: 'PerBooking', category: 'Convenience' })
   const [saving, setSaving] = useState(false)
 
@@ -1178,7 +969,7 @@ function AmenityManagement({ amenities, setAmenities, showToast }) {
   )
 }
 
-function Inquiry({ rooms, amenities }) {
+export function Inquiry({ rooms, amenities }) {
   const [tab, setTab] = useState('Room Rates')
   const [category, setCategory] = useState('Classic')
   const [amenityCategory, setAmenityCategory] = useState('Convenience')
@@ -1416,7 +1207,7 @@ function ErrorText({ message }) {
   return message ? <small className="error-text">{message}</small> : null
 }
 
-function NotFound({ navigate }) {
+export function NotFound({ navigate }) {
   return (
     <section className="page narrow">
       <PageTitle eyebrow="Not found" title="This page is unavailable" text="The route or record could not be found." />
@@ -1425,4 +1216,4 @@ function NotFound({ navigate }) {
   )
 }
 
-export default App
+

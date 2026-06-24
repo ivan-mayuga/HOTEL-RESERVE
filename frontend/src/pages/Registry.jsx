@@ -1,1 +1,3 @@
-export { default } from './LegacyScreens.jsx'
+import { Registry } from './LegacyScreens.jsx'
+
+export default Registry

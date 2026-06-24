@@ -1,1 +1,3 @@
-export { default } from './LegacyScreens.jsx'
+import { Checkout } from './LegacyScreens.jsx'
+
+export default Checkout

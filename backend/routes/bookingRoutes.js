@@ -24,6 +24,8 @@ router.get('/:referenceNumber', asyncHandler(bookingController.getBooking))
 router.post(
   '/',
   bookingRateLimiter,
+  requireAuth,
+  requireRole('staff', 'admin'),
   [
     body('guestName').matches(/^[A-Za-z ]{2,}$/).withMessage('Guest name must contain letters and spaces only'),
     body('numberOfGuests').isInt({ min: 1 }).withMessage('Number of guests must be greater than 0'),
@@ -37,6 +39,8 @@ router.post(
 
 router.patch(
   '/:referenceNumber/pay',
+  requireAuth,
+  requireRole('staff', 'admin'),
   [
     body('amenityCodes').optional().isArray().withMessage('amenityCodes must be an array'),
     body('amenityCodes.*').optional().isString().withMessage('Amenity codes must be strings'),
