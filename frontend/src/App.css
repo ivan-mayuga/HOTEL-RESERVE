@@ -803,3 +803,465 @@ tbody tr:nth-child(even) {
     border: 0;
   }
 }
+
+/* Parisian hotel theme overrides */
+.app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(250, 246, 239, 0.92) 420px),
+    var(--color-bg-primary);
+  color: var(--color-ink);
+}
+
+.nav {
+  border-bottom: 1px solid rgba(228, 218, 203, 0.72);
+  background: rgba(250, 246, 239, 0.78);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset;
+}
+
+.brand {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.brand-mark {
+  border-color: var(--color-accent-gold);
+  color: var(--color-accent-gold);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.brand strong {
+  color: var(--color-ink);
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.brand small,
+.nav-links button,
+.footer button,
+.eyebrow,
+.badge,
+th,
+.field span,
+.filter-bar button,
+.primary-button,
+.outline-button,
+.ghost-button,
+.danger-button,
+.table-action,
+.danger-link,
+.step-indicator li {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.brand small {
+  color: var(--color-ink-muted);
+}
+
+.nav-links button {
+  min-height: 36px;
+  border-radius: var(--radius-panel);
+  color: var(--color-ink-muted);
+}
+
+.nav-links button:hover,
+.nav-links button.active {
+  border-color: var(--color-accent-gold);
+  color: var(--color-ink);
+}
+
+h1,
+h2,
+.metric strong,
+.room-card strong,
+.booking-card h2,
+.feature-card h2,
+.detail-card h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 5vw, 4.8rem);
+}
+
+h2 {
+  font-size: clamp(1.35rem, 2.2vw, 2rem);
+}
+
+.page {
+  padding: 64px 0 76px;
+}
+
+.page-title {
+  margin-bottom: 36px;
+}
+
+.page-title p,
+.hero-strip p,
+.feature-card p,
+.footer p,
+.warning-panel p {
+  color: var(--color-ink-muted);
+}
+
+.eyebrow {
+  color: var(--color-accent-gold);
+}
+
+.hero-strip {
+  position: relative;
+  min-height: 360px;
+  align-items: center;
+  padding: 80px 0 64px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.hero-strip::before {
+  content: "";
+  position: absolute;
+  left: clamp(10rem, 32vw, 32rem);
+  top: 38px;
+  width: 240px;
+  height: 240px;
+  transform: translateX(-50%);
+  opacity: 0.34;
+  pointer-events: none;
+  background:
+    repeating-conic-gradient(from 0deg, transparent 0deg 8deg, rgba(184, 146, 74, 0.62) 8deg 9deg, transparent 9deg 18deg);
+  mask-image: radial-gradient(circle, transparent 0 18px, #000 19px 58px, transparent 59px);
+}
+
+.hero-strip h1 {
+  position: relative;
+  color: var(--color-ink);
+  font-size: clamp(3.8rem, 8vw, 7rem);
+  line-height: 0.92;
+  max-width: 720px;
+}
+
+.primary-button,
+.danger-button {
+  border-color: var(--color-accent-navy);
+  border-radius: var(--radius-panel);
+  background: var(--color-accent-navy);
+  color: var(--color-accent-gold-soft);
+}
+
+.primary-button:hover,
+.danger-button:hover {
+  border-color: var(--color-accent-gold);
+  color: var(--color-bg-primary);
+}
+
+.primary-button:disabled {
+  border-color: var(--color-rule);
+  background: var(--color-bg-secondary);
+  color: var(--color-ink-muted);
+}
+
+.outline-button,
+.ghost-button,
+.table-action,
+.danger-link {
+  border-color: var(--color-ink-muted);
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--color-ink);
+}
+
+.outline-button:hover,
+.ghost-button:hover,
+.table-action:hover,
+.danger-link:hover {
+  border-color: var(--color-accent-gold);
+  color: var(--color-accent-gold);
+}
+
+.filter-bar button {
+  border-radius: var(--radius-panel);
+  background: transparent;
+}
+
+.filter-bar button.active {
+  border-color: var(--color-accent-gold);
+  background: var(--color-panel);
+  color: var(--color-ink);
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 1px solid var(--color-accent-gold);
+  outline-offset: 3px;
+}
+
+.metric,
+.room-card,
+.booking-card,
+.feature-card,
+.panel,
+.detail-card,
+.receipt-card,
+.table-card,
+.modal,
+.warning-panel,
+.empty-state {
+  position: relative;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-panel);
+  background: var(--color-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.metric::after,
+.room-card::after,
+.booking-card::after,
+.feature-card::after,
+.panel::after,
+.detail-card::after,
+.receipt-card::after,
+.modal::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(228, 218, 203, 0.88);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.room-card,
+.booking-card,
+.feature-card,
+.panel,
+.detail-card,
+.receipt-card {
+  padding: 30px;
+}
+
+.room-card {
+  overflow: hidden;
+}
+
+.room-card::before {
+  content: "";
+  display: block;
+  height: 148px;
+  margin: -6px -6px 22px;
+  border: 1px solid var(--color-accent-gold);
+  box-shadow: 0 0 0 8px var(--color-bg-primary);
+  background:
+    linear-gradient(135deg, rgba(169, 178, 160, 0.34), rgba(241, 234, 224, 0.68)),
+    radial-gradient(circle at 26% 28%, rgba(184, 146, 74, 0.24), transparent 24%),
+    linear-gradient(90deg, transparent 0 42%, rgba(31, 42, 68, 0.12) 42% 47%, transparent 47%);
+}
+
+.room-card h2,
+.room-card strong,
+.booking-card h2,
+.detail-card h2 {
+  color: var(--color-ink);
+}
+
+.mini-facts dd,
+.definition-grid dd,
+.bill-rows dd,
+.readout strong,
+.metric strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 500;
+}
+
+.room-card .primary-button,
+.booking-card .primary-button,
+.feature-card .primary-button,
+.card-actions .primary-button {
+  border-color: var(--color-ink-muted);
+  background: transparent;
+  color: var(--color-ink);
+}
+
+.room-card .primary-button:hover,
+.booking-card .primary-button:hover,
+.feature-card .primary-button:hover,
+.card-actions .primary-button:hover {
+  border-color: var(--color-accent-gold);
+  color: var(--color-accent-gold);
+}
+
+.badge {
+  border-color: rgba(169, 178, 160, 0.78);
+  border-radius: var(--radius-panel);
+  background: rgba(169, 178, 160, 0.13);
+  color: var(--color-ink-muted);
+}
+
+.badge.vacant,
+.badge.paid,
+.badge.active,
+.badge.checkedout {
+  border-color: var(--color-sage);
+  color: #53604f;
+}
+
+.badge.occupied,
+.badge.unpaid,
+.badge.cancelled {
+  border-color: rgba(185, 28, 28, 0.42);
+  color: #8f2525;
+}
+
+.mini-facts div,
+.definition-grid div,
+.bill-rows div,
+.readout,
+th,
+td {
+  border-bottom-color: var(--color-rule);
+}
+
+tbody tr:nth-child(even) {
+  background: rgba(241, 234, 224, 0.46);
+}
+
+.form-grid {
+  gap: 24px 28px;
+}
+
+.field {
+  gap: 8px;
+}
+
+.field span {
+  color: var(--color-ink-muted);
+}
+
+input,
+select {
+  min-height: 48px;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  border-radius: 0;
+  padding: 0 2px;
+  background: transparent;
+  color: var(--color-ink);
+}
+
+select {
+  padding-right: 28px;
+}
+
+input:focus,
+select:focus {
+  border-bottom-color: var(--color-accent-gold);
+  outline: 0;
+  box-shadow: 0 1px 0 var(--color-accent-gold);
+}
+
+.step-indicator {
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.step-indicator li {
+  border-radius: var(--radius-panel);
+  background: rgba(255, 255, 255, 0.48);
+  color: var(--color-ink-muted);
+}
+
+.step-indicator span {
+  border-radius: var(--radius-panel);
+  color: var(--color-accent-gold);
+}
+
+.step-indicator li.active,
+.step-indicator li.done {
+  border-color: var(--color-accent-gold);
+  background: var(--color-panel);
+  color: var(--color-ink);
+}
+
+.choice {
+  border-color: var(--color-rule);
+  border-radius: var(--radius-panel);
+  background: var(--color-panel);
+  box-shadow: none;
+}
+
+.choice strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.choice span,
+.choice small {
+  color: var(--color-ink-muted);
+}
+
+.choice.selected {
+  border-color: var(--color-accent-gold);
+  box-shadow: inset 0 0 0 5px rgba(217, 200, 164, 0.22);
+  color: var(--color-ink);
+}
+
+.search-panel {
+  gap: 18px;
+  margin-bottom: 32px;
+}
+
+.wizard-actions {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.footer {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid var(--color-accent-gold);
+  background:
+    linear-gradient(135deg, rgba(250, 246, 239, 0.05) 25%, transparent 25%) 0 0 / 28px 28px,
+    linear-gradient(225deg, rgba(250, 246, 239, 0.05) 25%, transparent 25%) 0 0 / 28px 28px,
+    var(--color-ink);
+  color: var(--color-bg-primary);
+}
+
+.footer strong {
+  color: var(--color-accent-gold-soft);
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.footer p {
+  color: rgba(250, 246, 239, 0.72);
+}
+
+.footer button {
+  color: var(--color-accent-gold-soft);
+}
+
+.footer button:hover {
+  color: var(--color-bg-primary);
+}
+
+.toast {
+  border-color: var(--color-sage);
+  border-radius: var(--radius-panel);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-panel);
+}

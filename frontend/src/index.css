@@ -1,16 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+
 :root {
-  --color-brand: #1c3557;
-  --color-black: #1a1a1a;
-  --color-gray-mid: #666666;
-  --color-gray-light: #cccccc;
-  --color-gray-bg: #f2f2f2;
-  --color-white: #ffffff;
+  --color-bg-primary: #FAF6EF;
+  --color-bg-secondary: #F1EAE0;
+  --color-panel: #FFFFFF;
+  --color-ink: #2B2A28;
+  --color-ink-muted: #6B6358;
+  --color-accent-gold: #B8924A;
+  --color-accent-gold-soft: #D9C8A4;
+  --color-accent-navy: #1F2A44;
+  --color-rule: #E4DACB;
+  --color-sage: #A9B2A0;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --radius-panel: 2px;
+  --shadow-panel: 0 1px 0 var(--color-rule), 0 12px 32px -16px rgba(43,42,40,0.18);
+  --color-brand: var(--color-accent-navy);
+  --color-black: var(--color-ink);
+  --color-gray-mid: var(--color-ink-muted);
+  --color-gray-light: var(--color-rule);
+  --color-gray-bg: var(--color-bg-secondary);
+  --color-white: var(--color-panel);
   --color-error: #b91c1c;
   --color-success: #166534;
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: var(--font-body);
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   color: var(--color-black);
-  background: var(--color-white);
+  background: var(--color-bg-primary);
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
@@ -27,6 +43,10 @@
 body {
   min-width: 320px;
   margin: 0;
+  background:
+    linear-gradient(90deg, rgba(184, 146, 74, 0.035) 1px, transparent 1px),
+    linear-gradient(var(--color-bg-primary), var(--color-bg-primary));
+  background-size: 96px 96px, auto;
 }
 
 button,
