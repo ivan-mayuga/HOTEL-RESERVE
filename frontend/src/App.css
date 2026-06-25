@@ -757,6 +757,12 @@ tbody tr:nth-child(even) {
     flex-direction: column;
   }
 
+  .hero-strip {
+    min-height: 560px;
+    padding: 72px 24px 28px;
+    background-position: 58% center;
+  }
+
   .hero-strip h1 {
     font-size: 36px;
   }
@@ -918,33 +924,57 @@ h2 {
 
 .hero-strip {
   position: relative;
-  min-height: 360px;
+  min-height: 520px;
   align-items: center;
-  padding: 80px 0 64px;
-  border-bottom: 1px solid var(--color-rule);
+  overflow: hidden;
+  padding: 96px 56px 72px;
+  border: 1px solid var(--color-rule);
+  background:
+    linear-gradient(90deg, rgba(20, 22, 24, 0.74) 0%, rgba(20, 22, 24, 0.44) 48%, rgba(20, 22, 24, 0.08) 100%),
+    url("./assets/main-hotel-design.jpg") center / cover no-repeat;
+  box-shadow: var(--shadow-panel);
 }
 
 .hero-strip::before {
   content: "";
   position: absolute;
-  left: clamp(10rem, 32vw, 32rem);
-  top: 38px;
-  width: 240px;
-  height: 240px;
-  transform: translateX(-50%);
-  opacity: 0.34;
+  inset: 10px;
+  border: 1px solid rgba(217, 200, 164, 0.62);
   pointer-events: none;
-  background:
-    repeating-conic-gradient(from 0deg, transparent 0deg 8deg, rgba(184, 146, 74, 0.62) 8deg 9deg, transparent 9deg 18deg);
-  mask-image: radial-gradient(circle, transparent 0 18px, #000 19px 58px, transparent 59px);
 }
 
 .hero-strip h1 {
   position: relative;
-  color: var(--color-ink);
+  color: var(--color-bg-primary);
   font-size: clamp(3.8rem, 8vw, 7rem);
   line-height: 0.92;
   max-width: 720px;
+  text-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+}
+
+.hero-strip .eyebrow {
+  color: var(--color-accent-gold-soft);
+}
+
+.hero-strip p {
+  position: relative;
+  max-width: 540px;
+  color: rgba(250, 246, 239, 0.84);
+}
+
+.hero-strip .hero-actions {
+  position: relative;
+  align-self: flex-end;
+}
+
+.hero-strip .outline-button {
+  border-color: rgba(250, 246, 239, 0.76);
+  color: var(--color-bg-primary);
+}
+
+.hero-strip .outline-button:hover {
+  border-color: var(--color-accent-gold-soft);
+  color: var(--color-accent-gold-soft);
 }
 
 .primary-button,
